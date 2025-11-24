@@ -1,691 +1,180 @@
 <!DOCTYPE html>
 <html lang="de">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Praxibot – digitaler Patientenassistent (Demo)</title>
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1"
-    />
-
-    <style>
-      :root {
-        --bg: #f3f5fb;
-        --bg-card: #ffffff;
-        --primary: #2563eb;
-        --primary-soft: #e0ebff;
-        --accent: #10b981;
-        --text-main: #0f172a;
-        --text-soft: #64748b;
-        --border-subtle: #e2e8f0;
-        --radius-lg: 22px;
-      }
-
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-
-      body {
-        min-height: 100vh;
-        margin: 0;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-          sans-serif;
-        background: radial-gradient(circle at top left, #dbeafe 0, #f3f5fb 55%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 24px;
-        color: var(--text-main);
-      }
-
-      .shell {
-        width: 100%;
-        max-width: 1040px;
-        min-height: 520px;
-        display: grid;
-        grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.3fr);
-        gap: 28px;
-      }
-
-      @media (max-width: 880px) {
-        body {
-          align-items: flex-start;
-        }
-        .shell {
-          grid-template-columns: minmax(0, 1fr);
-        }
-      }
-
-      .panel {
-        background: var(--bg-card);
-        border-radius: var(--radius-lg);
-        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
-        padding: 24px 24px 20px;
-        border: 1px solid rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(10px);
-      }
-
-      .panel--info {
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        gap: 22px;
-      }
-
-      .logo-row {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 8px;
-      }
-
-      .logo-badge {
-        width: 44px;
-        height: 44px;
-        border-radius: 16px;
-        background: conic-gradient(
-          from 220deg,
-          #2563eb,
-          #0ea5e9,
-          #22c55e,
-          #2563eb
-        );
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #fff;
-        font-weight: 700;
-        font-size: 20px;
-        letter-spacing: 0.04em;
-      }
-
-      .logo-text {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-      }
-
-      .logo-title {
-        font-size: 15px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-        color: #1d4ed8;
-      }
-
-      .logo-sub {
-        font-size: 13px;
-        color: var(--text-soft);
-      }
-
-      h1 {
-        font-size: 28px;
-        line-height: 1.2;
-        margin-bottom: 8px;
-      }
-
-      .tagline {
-        font-size: 15px;
-        color: var(--text-soft);
-        max-width: 520px;
-        margin-bottom: 14px;
-      }
-
-      .chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 10px;
-      }
-
-      .chip {
-        font-size: 12px;
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: var(--primary-soft);
-        color: #1d4ed8;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-      }
-
-      .chip-dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 999px;
-        background: #1d4ed8;
-      }
-
-      .hint-box {
-        background: #fef9c3;
-        border-radius: 14px;
-        border: 1px solid #facc15;
-        padding: 10px 12px;
-        font-size: 13px;
-        color: #854d0e;
-        display: flex;
-        gap: 8px;
-        align-items: flex-start;
-        margin-bottom: 8px;
-      }
-
-      .hint-icon {
-        font-size: 18px;
-      }
-
-      .list {
-        list-style: none;
-        padding: 0;
-        margin: 8px 0 4px;
-        font-size: 14px;
-        color: var(--text-soft);
-      }
-
-      .list li {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 6px;
-      }
-
-      .list-bullet {
-        font-size: 9px;
-        margin-top: 4px;
-        color: #1d4ed8;
-      }
-
-      .footer-note {
-        font-size: 12px;
-        color: #94a3b8;
-        margin-top: 6px;
-      }
-
-      .panel--chat {
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-      }
-
-      .chat-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-      }
-
-      .chat-meta {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-
-      .bot-avatar {
-        width: 40px;
-        height: 40px;
-        border-radius: 999px;
-        background: radial-gradient(circle at 25% 0, #ffffff, #2563eb);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 20px;
-        color: #eff6ff;
-      }
-
-      .bot-text {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-      }
-
-      .bot-name {
-        font-size: 15px;
-        font-weight: 600;
-      }
-
-      .bot-sub {
-        font-size: 12px;
-        color: var(--text-soft);
-      }
-
-      .status-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: #dcfce7;
-        color: #15803d;
-        font-size: 11px;
-      }
-
-      .status-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 999px;
-        background: #22c55e;
-      }
-
-      .chat-box {
-        border-radius: 18px;
-        border: 1px solid var(--border-subtle);
-        background: #f8fafc;
-        padding: 12px 12px 10px;
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        min-height: 320px;
-      }
-
-      .messages {
-        flex: 1;
-        overflow-y: auto;
-        padding-right: 4px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        font-size: 14px;
-      }
-
-      .msg-row {
-        display: flex;
-      }
-
-      .msg-row.user {
-        justify-content: flex-end;
-      }
-
-      .msg-row.bot {
-        justify-content: flex-start;
-      }
-
-      .bubble {
-        max-width: 80%;
-        padding: 8px 11px;
-        border-radius: 14px;
-        line-height: 1.45;
-        box-shadow: 0 3px 8px rgba(15, 23, 42, 0.06);
-      }
-
-      .bubble.user {
-        background: linear-gradient(135deg, #2563eb, #1d4ed8);
-        color: #f9fafb;
-        border-bottom-right-radius: 4px;
-      }
-
-      .bubble.bot {
-        background: #ffffff;
-        color: #0f172a;
-        border-bottom-left-radius: 4px;
-      }
-
-      .chat-input-area {
-        margin-top: 8px;
-      }
-
-      .input-row {
-        display: flex;
-        gap: 8px;
-        align-items: flex-end;
-      }
-
-      .input-wrapper {
-        flex: 1;
-        position: relative;
-      }
-
-      .input-field {
-        width: 100%;
-        resize: none;
-        min-height: 42px;
-        max-height: 90px;
-        padding: 9px 88px 9px 11px;
-        border-radius: 999px;
-        border: 1px solid var(--border-subtle);
-        font-family: inherit;
-        font-size: 14px;
-        outline: none;
-        line-height: 1.4;
-        background: #ffffff;
-      }
-
-      .input-field:focus {
-        border-color: rgba(37, 99, 235, 0.8);
-        box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3);
-      }
-
-      .placeholder-hint {
-        position: absolute;
-        right: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        font-size: 11px;
-        color: #94a3b8;
-        pointer-events: none;
-      }
-
-      .send-btn {
-        border-radius: 999px;
-        border: none;
-        padding: 10px 16px;
-        font-size: 14px;
-        font-weight: 600;
-        background: linear-gradient(135deg, #2563eb, #1d4ed8);
-        color: #ffffff;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        box-shadow: 0 9px 18px rgba(37, 99, 235, 0.35);
-        transition: transform 0.1s ease, box-shadow 0.1s ease,
-          filter 0.1s ease;
-      }
-
-      .send-btn:disabled {
-        opacity: 0.6;
-        cursor: default;
-        box-shadow: none;
-      }
-
-      .send-btn:not(:disabled):hover {
-        transform: translateY(-1px);
-        filter: brightness(1.05);
-        box-shadow: 0 12px 22px rgba(37, 99, 235, 0.45);
-      }
-
-      .send-icon {
-        font-size: 14px;
-      }
-
-      .help-row {
-        margin-top: 4px;
-        font-size: 11px;
-        color: #9ca3af;
-        display: flex;
-        justify-content: space-between;
-        gap: 10px;
-      }
-
-      .help-row span {
-        max-width: 70%;
-      }
-
-      .error {
-        color: #b91c1c;
-      }
-
-      .typing {
-        font-size: 11px;
-        color: #94a3b8;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-      }
-
-      .dot {
-        width: 4px;
-        height: 4px;
-        border-radius: 999px;
-        background: #cbd5f5;
-        animation: pulse 1s infinite ease-in-out;
-      }
-
-      .dot:nth-child(2) {
-        animation-delay: 0.2s;
-      }
-
-      .dot:nth-child(3) {
-        animation-delay: 0.4s;
-      }
-
-      @keyframes pulse {
-        0%,
-        80%,
-        100% {
-          transform: translateY(0);
-          opacity: 0.4;
-        }
-        40% {
-          transform: translateY(-2px);
-          opacity: 1;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <main class="shell">
-      <!-- Info-Panel -->
-      <section class="panel panel--info">
-        <header>
-          <div class="logo-row">
-            <div class="logo-badge">PB</div>
-            <div class="logo-text">
-              <div class="logo-title">Praxibot Demo</div>
-              <div class="logo-sub">
-                KI-gestützter Assistent für Arztpraxen &amp; MVZ
-              </div>
-            </div>
-          </div>
-
-          <h1>Digitaler Patientenassistent für Ihre Praxis</h1>
-          <p class="tagline">
-            Der Praxibot beantwortet organisatorische Fragen, entlastet Ihr
-            Team am Telefon und ist rund um die Uhr erreichbar – speziell für
-            Haus- und Facharztpraxen.
-          </p>
-
-          <div class="chips">
-            <span class="chip"
-              ><span class="chip-dot"></span>24/7 erreichbar</span
-            >
-            <span class="chip">Organisatorische Auskünfte</span>
-            <span class="chip">Keine medizinische Beratung</span>
-          </div>
-
-          <div class="hint-box">
-            <div class="hint-icon">⚠️</div>
-            <div>
-              <strong>Wichtiger Hinweis:</strong> Der Praxibot ersetzt keine
-              ärztliche Untersuchung oder persönliche Beratung. Bei akuten
-              Beschwerden oder Notfällen wählen Sie bitte den
-              <strong>Notruf 112</strong> oder den ärztlichen
-              Bereitschaftsdienst <strong>116 117</strong>.
-            </div>
-          </div>
-
-          <ul class="list">
-            <li>
-              <span class="list-bullet">●</span>
-              <span>Sprechzeiten, Terminarten und organisatorische Abläufe</span>
-            </li>
-            <li>
-              <span class="list-bullet">●</span>
-              <span>Informationen zu Rezepten, Überweisungen und Unterlagen</span>
-            </li>
-            <li>
-              <span class="list-bullet">●</span>
-              <span>
-                Vorbereitung des Praxisbesuchs – verständlich erklärt für
-                Patient:innen
-              </span>
-            </li>
-          </ul>
-
-          <p class="footer-note">
-            Diese Demo zeigt, wie ein auf Ihre Praxis zugeschnittener
-            Assistent aussehen kann. Inhalte und Design werden individuell
-            angepasst.
-          </p>
-        </header>
-      </section>
-
-      <!-- Chat-Panel -->
-      <section class="panel panel--chat" aria-label="Praxibot Demo Chat">
-        <header class="chat-header">
-          <div class="chat-meta">
-            <div class="bot-avatar">🤖</div>
-            <div class="bot-text">
-              <div class="bot-name">Praxibot (Demo)</div>
-              <div class="bot-sub">
-                Organisatorische Hilfe für Patient:innen
-              </div>
-            </div>
-          </div>
-          <div class="status-pill">
-            <span class="status-dot"></span>
-            Online • Antwort in Sekunden
-          </div>
-        </header>
-
-        <div class="chat-box">
-          <div id="messages" class="messages" aria-live="polite"></div>
-
-          <div class="chat-input-area">
-            <div class="input-row">
-              <div class="input-wrapper">
-                <textarea
-                  id="input"
-                  class="input-field"
-                  placeholder="Stellen Sie Ihre Frage – z. B. zu Sprechzeiten, Rezepten oder Terminen…"
-                  rows="1"
-                ></textarea>
-                <span class="placeholder-hint">Enter = Senden · Shift+Enter = Zeilenumbruch</span>
-              </div>
-              <button id="send-btn" class="send-btn" type="button">
-                Senden <span class="send-icon">➤</span>
-              </button>
-            </div>
-            <div class="help-row">
-              <span>
-                Testen Sie den Demo-Praxibot: Fragen Sie z.&nbsp;B. nach
-                Öffnungszeiten, Rezeptanforderungen oder Terminabläufen.
-              </span>
-              <span id="status" class=""></span>
-            </div>
-          </div>
-        </div>
-      </section>
-    </main>
-
-    <script>
-      const messagesEl = document.getElementById("messages");
-      const inputEl = document.getElementById("input");
-      const sendBtn = document.getElementById("send-btn");
-      const statusEl = document.getElementById("status");
-
-      let sending = false;
-
-      function appendMessage(text, role = "bot") {
-        const row = document.createElement("div");
-        row.className = "msg-row " + role;
-
-        const bubble = document.createElement("div");
-        bubble.className = "bubble " + role;
-        bubble.textContent = text;
-
-        row.appendChild(bubble);
-        messagesEl.appendChild(row);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-      }
-
-      function showTyping() {
-        const row = document.createElement("div");
-        row.id = "typing-row";
-        row.className = "msg-row bot";
-
-        const bubble = document.createElement("div");
-        bubble.className = "bubble bot";
-
-        const wrap = document.createElement("div");
-        wrap.className = "typing";
-        wrap.innerHTML =
-          '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
-
-        bubble.appendChild(wrap);
-        row.appendChild(bubble);
-        messagesEl.appendChild(row);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-      }
-
-      function hideTyping() {
-        const row = document.getElementById("typing-row");
-        if (row) row.remove();
-      }
-
-      async function send() {
-        const text = inputEl.value.trim();
-        if (!text || sending) return;
-
-        sending = true;
-        sendBtn.disabled = true;
-        statusEl.textContent = "";
-        statusEl.classList.remove("error");
-
-        appendMessage(text, "user");
-        inputEl.value = "";
-        showTyping();
-
-        try {
-          const res = await fetch("/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: text }),
-          });
-
-          const data = await res.json().catch(() => ({}));
-          hideTyping();
-
-          if (!res.ok) {
-            const msg =
-              data.error ||
-              `Es ist ein Fehler aufgetreten (Status ${res.status}).`;
-            appendMessage(msg, "bot");
-            statusEl.textContent = "Fehler bei der Verbindung zum Server.";
-            statusEl.classList.add("error");
-            return;
-          }
-
-          const reply =
-            data.reply ||
-            data.message ||
-            data.response ||
-            (data.choices &&
-              data.choices[0] &&
-              data.choices[0].message &&
-              data.choices[0].message.content) ||
-            "Es ist ein unerwarteter Fehler aufgetreten.";
-
-          appendMessage(reply, "bot");
-        } catch (err) {
-          console.error(err);
-          hideTyping();
-          appendMessage(
-            "Es ist ein Verbindungsfehler aufgetreten. Bitte versuchen Sie es später erneut.",
-            "bot"
-          );
-          statusEl.textContent = "Verbindungsfehler.";
-          statusEl.classList.add("error");
-        } finally {
-          sending = false;
-          sendBtn.disabled = false;
-          inputEl.focus();
-        }
-      }
-
-      // Button-Klick
-      sendBtn.addEventListener("click", send);
-
-      // Enter = Senden, Shift+Enter = neue Zeile
-      inputEl.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" && !event.shiftKey) {
-          event.preventDefault();
-          send();
-        }
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Praxibot – Patientenassistent</title>
+
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --text: #1a1a1a;
+      --text-light: #4f4f4f;
+      --white: #ffffff;
+      --border: #dcdfe3;
+      --primary: #2f67c2;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--bg);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 14px;
+      color: var(--text);
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: var(--text);
+      text-align: center;
+    }
+
+    .chat-container {
+      width: 100%;
+      max-width: 520px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      height: 70vh;
+      overflow: hidden;
+    }
+
+    #messages {
+      flex: 1;
+      padding: 18px;
+      overflow-y: auto;
+      font-size: 15px;
+    }
+
+    .msg {
+      margin-bottom: 14px;
+      line-height: 1.45;
+      max-width: 85%;
+    }
+
+    .user {
+      align-self: flex-end;
+      background: var(--primary);
+      color: white;
+      padding: 10px 12px;
+      border-radius: 10px 10px 0 10px;
+    }
+
+    .bot {
+      align-self: flex-start;
+      background: #eef1f6;
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 10px 10px 10px 0;
+      border: 1px solid #e3e6eb;
+    }
+
+    .input-area {
+      display: flex;
+      border-top: 1px solid var(--border);
+      padding: 10px;
+      background: var(--white);
+    }
+
+    #input {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      outline: none;
+      font-size: 15px;
+      background: #fafbfc;
+    }
+
+    #input:focus {
+      border-color: var(--primary);
+    }
+
+    button {
+      margin-left: 10px;
+      background: var(--primary);
+      border: none;
+      border-radius: 8px;
+      color: white;
+      padding: 10px 16px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #2557a3;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Praxibot – digitaler Assistent</h1>
+
+  <div class="chat-container">
+    <div id="messages"></div>
+
+    <div class="input-area">
+      <input id="input" type="text" placeholder="Ihre Nachricht…" />
+      <button onclick="sendMessage()">Senden</button>
+    </div>
+  </div>
+
+  <script>
+    async function sendMessage() {
+      const input = document.getElementById("input");
+      const messages = document.getElementById("messages");
+
+      if (input.value.trim() === "") return;
+
+      // Nutzer
+      const userMsg = document.createElement("div");
+      userMsg.className = "msg user";
+      userMsg.innerText = input.value;
+      messages.appendChild(userMsg);
+
+      const userText = input.value;
+      input.value = "";
+      messages.scrollTop = messages.scrollHeight;
+
+      // Anfrage senden
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userText }),
       });
 
-      // Begrüßungsnachricht
-      appendMessage(
-        "Willkommen beim Praxibot (Demo). Ich beantworte organisatorische Fragen rund um Termine, Sprechzeiten, Rezepte und Abläufe in einer Arztpraxis. Was möchten Sie wissen?"
-      );
-    </script>
-  </body>
+      const data = await response.json();
+
+      // Bot Antwort
+      const botMsg = document.createElement("div");
+      botMsg.className = "msg bot";
+      botMsg.innerText = data.response || data.reply || "Fehler bei der Antwort.";
+      messages.appendChild(botMsg);
+
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    // ENTER zum Senden
+    document.getElementById("input").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+  </script>
+
+</body>
 </html>
