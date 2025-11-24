@@ -56,6 +56,8 @@
       padding: 18px;
       overflow-y: auto;
       font-size: 15px;
+      display: flex;
+      flex-direction: column;
     }
 
     .msg {
@@ -116,6 +118,13 @@
     button:hover {
       background: #2557a3;
     }
+
+    .status {
+      font-size: 12px;
+      color: #b91c1c;
+      margin-top: 4px;
+      padding: 0 12px 10px;
+    }
   </style>
 </head>
 
@@ -128,85 +137,109 @@
 
     <div class="input-area">
       <input id="input" type="text" placeholder="Ihre Nachricht…" />
-      <button onclick="sendMessage()">Senden</button>
+      <button id="sendBtn" type="button">Senden</button>
     </div>
+    <div id="status" class="status"></div>
   </div>
-<script>
-  async function sendMessage() {
-    const input = document.getElementById("input");
-    const messages = document.getElementById("messages");
 
-    if (input.value.trim() === "") return;
+  <script>
+    const messagesEl = document.getElementById("messages");
+    const inputEl = document.getElementById("input");
+    const sendBtn = document.getElementById("sendBtn");
+    const statusEl = document.getElementById("status");
 
-    // Nutzer-Nachricht anzeigen
-    const userMsg = document.createElement("div");
-    userMsg.className = "msg user";
-    userMsg.innerText = input.value;
-    messages.appendChild(userMsg);
+    // Chat-Verlauf für OpenAI – HIER kannst du deinen System-Prompt anpassen
+    const history = [
+      {
+        role: "system",
+        content:
+          "Du bist der digitale Praxisassistent (Praxibot) einer Arztpraxis. " +
+          "Du beantwortest nur organisatorische Fragen zu Sprechzeiten, Rezepten, Terminen usw. " +
+          "Du gibst keine medizinischen Diagnosen oder Therapieempfehlungen und verweist bei Notfällen auf den Notruf 112."
+      },
+    ];
 
-    const userText = input.value;
-    input.value = "";
-    messages.scrollTop = messages.scrollHeight;
+    function appendMessage(text, role) {
+      const div = document.createElement("div");
+      div.className = "msg " + role;
+      div.innerText = text;
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
 
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userText }),
-      });
+    async function sendMessage() {
+      const text = inputEl.value.trim();
+      if (!text) return;
 
-      const data = await response.json().catch(() => ({}));
-      console.log("API-Antwort:", data); // hilft dir im Browser-Console-Log
+      statusEl.textContent = "";
+      appendMessage(text, "user");
+      history.push({ role: "user", content: text });
+      inputEl.value = "";
 
-      // wenn HTTP-Fehlercode
-      if (!response.ok) {
-        const errText =
-          data.error ||
-          `Es ist ein Fehler aufgetreten (Status ${response.status}).`;
-        const botErr = document.createElement("div");
-        botErr.className = "msg bot";
-        botErr.innerText = errText;
-        messages.appendChild(botErr);
-        messages.scrollTop = messages.scrollHeight;
-        return;
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            // wichtig: OpenAI erwartet ein ARRAY unter `messages`
+            messages: history,
+            // falls dein Backend zusätzlich noch andere Felder nutzt:
+            message: text
+          }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        console.log("API Antwort:", data);
+
+        if (!res.ok) {
+          const errText =
+            data.error ||
+            `Es ist ein Fehler aufgetreten (Status ${res.status}).`;
+          appendMessage(errText, "bot");
+          statusEl.textContent = "Fehler bei der Serverantwort.";
+          return;
+        }
+
+        const reply =
+          data.reply ||
+          data.message ||
+          data.response ||
+          (data.choices &&
+            data.choices[0] &&
+            data.choices[0].message &&
+            data.choices[0].message.content) ||
+          data.answer ||
+          "Es ist ein unerwarteter Fehler aufgetreten.";
+
+        appendMessage(reply, "bot");
+        history.push({ role: "assistant", content: reply });
+      } catch (err) {
+        console.error(err);
+        appendMessage(
+          "Es ist ein Verbindungsfehler aufgetreten. Bitte versuchen Sie es später erneut.",
+          "bot"
+        );
+        statusEl.textContent = "Verbindungsfehler.";
       }
-
-      // versuche verschiedene mögliche Felder
-      const botText =
-        data.reply ||
-        data.message ||
-        data.response ||
-        (data.choices &&
-          data.choices[0] &&
-          data.choices[0].message &&
-          data.choices[0].message.content) ||
-        data.answer ||
-        "Es ist ein unerwarteter Fehler aufgetreten.";
-
-      const botMsg = document.createElement("div");
-      botMsg.className = "msg bot";
-      botMsg.innerText = botText;
-      messages.appendChild(botMsg);
-      messages.scrollTop = messages.scrollHeight;
-    } catch (err) {
-      console.error(err);
-      const botErr = document.createElement("div");
-      botErr.className = "msg bot";
-      botErr.innerText =
-        "Es ist ein Verbindungsfehler aufgetreten. Bitte versuchen Sie es später erneut.";
-      messages.appendChild(botErr);
-      messages.scrollTop = messages.scrollHeight;
     }
-  }
 
-  // ENTER zum Senden
-  document.getElementById("input").addEventListener("keydown", function (e) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      sendMessage();
-    }
-  });
-</script>
+    // Button klick
+    sendBtn.addEventListener("click", sendMessage);
+
+    // Enter zum Senden
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    // optionale Begrüßungsnachricht
+    appendMessage(
+      "Willkommen beim Praxibot (Demo). Stellen Sie Ihre Frage rund um Termine, Sprechzeiten oder Rezepte.",
+      "bot"
+    );
+  </script>
 
 </body>
 </html>
