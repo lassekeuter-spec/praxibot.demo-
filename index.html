@@ -2,101 +2,158 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title>Praxibot Demo</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Praxibot – digitaler Patientenassistent</title>
+
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background: #f5f5f5;
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, sans-serif;
+      background: #f5f7fb;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 20px;
+      padding: 40px 20px;
     }
-    #chat-box {
-      width: 90%;
+
+    h1 {
+      margin-bottom: 25px;
+      font-size: 28px;
+      font-weight: 600;
+      color: #1e2a3a;
+    }
+
+    .chat-wrapper {
+      width: 100%;
       max-width: 600px;
+      height: 70vh;
       background: #ffffff;
-      border-radius: 10px;
+      border-radius: 20px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #messages {
+      flex: 1;
       padding: 20px;
-      height: 400px;
       overflow-y: auto;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      margin-bottom: 10px;
+      color: #1e2a3a;
     }
-    #user-input {
-      width: 70%;
-      padding: 10px;
+
+    .message {
+      margin-bottom: 18px;
+      line-height: 1.4;
+      font-size: 15px;
     }
+
+    .user {
+      text-align: right;
+      color: #ffffff;
+      background: #3178c6;
+      display: inline-block;
+      padding: 10px 14px;
+      border-radius: 14px;
+      max-width: 80%;
+    }
+
+    .bot {
+      text-align: left;
+      background: #eef3fb;
+      color: #1e2a3a;
+      display: inline-block;
+      padding: 10px 14px;
+      border-radius: 14px;
+      max-width: 80%;
+    }
+
+    .input-area {
+      display: flex;
+      padding: 12px;
+      border-top: 1px solid #e4e7ec;
+      background: #ffffff;
+    }
+
+    #input {
+      flex: 1;
+      padding: 12px 14px;
+      border: 1px solid #d0d5dd;
+      border-radius: 12px;
+      font-size: 15px;
+      outline: none;
+    }
+
+    #input:focus {
+      border-color: #3178c6;
+    }
+
     button {
-      padding: 10px 20px;
-      margin-left: 5px;
+      margin-left: 10px;
+      padding: 12px 20px;
+      background-color: #3178c6;
+      color: #ffffff;
+      border: none;
+      border-radius: 12px;
       cursor: pointer;
+      font-size: 15px;
+      font-weight: 500;
     }
-    p {
-      margin: 5px 0;
+
+    button:hover {
+      background-color: #255999;
     }
   </style>
 </head>
+
 <body>
-  <h2>Praxibot – digitaler Patientenassistent</h2>
+  <h1>Praxibot – digitaler Patientenassistent</h1>
 
-  <div id="chat-box"></div>
+  <div class="chat-wrapper">
+    <div id="messages"></div>
 
-  <div>
-    <input id="user-input" placeholder="Ihre Nachricht..." />
-    <button onclick="sendMessage()">Senden</button>
+    <div class="input-area">
+      <input id="input" type="text" placeholder="Ihre Nachricht…" />
+      <button onclick="sendMessage()">Senden</button>
+    </div>
   </div>
 
   <script>
     async function sendMessage() {
-      const inputElement = document.getElementById("user-input");
-      const chatBox = document.getElementById("chat-box");
-      const text = inputElement.value.trim();
+      const input = document.getElementById("input");
+      const messages = document.getElementById("messages");
 
-      if (!text) {
-        return; // Wenn nichts eingegeben wurde, mach nichts
-      }
+      if (input.value.trim() === "") return;
 
-      // Zeige die Nutzer-Nachricht im Chatfenster
-      chatBox.innerHTML += `<p><b>Sie:</b> ${text}</p>`;
-      inputElement.value = "";
+      // Nutzer-Nachricht anzeigen
+      const userMsg = document.createElement("div");
+      userMsg.className = "message user";
+      userMsg.innerText = input.value;
+      messages.appendChild(userMsg);
 
-      try {
-        // HIER passiert der wichtige Teil:
-        // Wir rufen unseren eigenen Server-Endpunkt /api/chat auf
-        const response = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            messages: [
-              {
-                role: "system",
-                content: "Du bist ein freundlicher digitaler Patientenassistent für eine Zahnarztpraxis. Antworte kurz, professionell und verständlich auf Deutsch."
-              },
-              {
-                role: "user",
-                content: text
-              }
-            ]
-          })
-        });
+      const userText = input.value;
+      input.value = "";
 
-        const data = await response.json();
+      // Scrollen
+      messages.scrollTop = messages.scrollHeight;
 
-        let reply;
-        if (response.ok && data.choices && data.choices[0] && data.choices[0].message) {
-          reply = data.choices[0].message.content;
-        } else {
-          reply = "Es ist ein Fehler aufgetreten: " + (data.error?.message || JSON.stringify(data));
-        }
+      // Sende an API
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userText }),
+      });
 
-        // Zeige die Antwort im Chatfenster
-        chatBox.innerHTML += `<p><b>Assistent:</b> ${reply}</p>`;
-        chatBox.scrollTop = chatBox.scrollHeight;
-      } catch (err) {
-        chatBox.innerHTML += `<p><b>Assistent:</b> Netzwerkfehler: ${err}</p>`;
-      }
+      const data = await response.json();
+
+      // Bot-Antwort anzeigen
+      const botMsg = document.createElement("div");
+      botMsg.className = "message bot";
+      botMsg.innerText = data.response;
+      messages.appendChild(botMsg);
+
+      messages.scrollTop = messages.scrollHeight;
     }
   </script>
 </body>
