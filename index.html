@@ -8,123 +8,114 @@
   <style>
     :root {
       --bg: #f6f7f9;
+      --surface: #ffffff;
       --text: #111827;
-      --text-light: #4b5563;
-      --white: #ffffff;
+      --text-muted: #6b7280;
       --border: #e5e7eb;
 
-      /* KCS Brand */
+      /* KCS brand (keine Gradients) */
       --kcs-blue: #14608c;
-      --kcs-teal: #1392a8;
-      --kcs-orange: #fa742d;
 
-      /* UI */
+      /* UI mapping */
       --primary: var(--kcs-blue);
       --primary-hover: #0f4e72;
+
       --bot-bg: #eef1f6;
       --shadow: 0 14px 40px rgba(17, 24, 39, 0.12);
       --radius: 16px;
       --radius-sm: 12px;
+      --focus: 0 0 0 4px rgba(20, 96, 140, 0.18);
+      --maxw: 760px;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
+
     body {
-      background: radial-gradient(1000px 520px at 50% -10%, rgba(19,146,168,0.14), transparent 60%),
-                  radial-gradient(900px 520px at 90% 0%, rgba(250,116,45,0.12), transparent 60%),
-                  radial-gradient(900px 520px at 10% 0%, rgba(20,96,140,0.14), transparent 60%),
-                  var(--bg);
+      background: var(--bg);
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       color: var(--text);
       display: flex;
-      flex-direction: column;
       align-items: center;
-      padding: 34px 14px 44px;
+      justify-content: center;
+      padding: 24px 14px;
     }
 
-    /* Header */
-    .header {
+    .app {
       width: 100%;
-      max-width: 760px;
-      display: grid;
-      justify-items: center;
-      gap: 10px;
-      margin-bottom: 18px;
+      max-width: var(--maxw);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      height: min(78vh, 720px);
+      min-height: 560px;
+      display: flex;
+      flex-direction: column;
     }
 
-    .brand-badge {
-      display: inline-flex;
+    /* Header inside the same window */
+    .topbar {
+      display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      border-radius: 999px;
-      background: linear-gradient(90deg, rgba(20,96,140,0.12), rgba(19,146,168,0.12), rgba(250,116,45,0.10));
-      border: 1px solid rgba(229,231,235,0.9);
-      box-shadow: 0 10px 24px rgba(17, 24, 39, 0.08);
-      backdrop-filter: blur(6px);
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
     }
 
     .logo {
-      height: 42px;
+      height: 34px;
       width: auto;
       display: block;
     }
 
-    .brand-text {
-      font-weight: 700;
-      letter-spacing: -0.01em;
-      color: var(--text);
-      font-size: 14px;
-      white-space: nowrap;
-    }
-
-    h1 {
-      font-size: 26px;
-      font-weight: 750;
-      letter-spacing: -0.02em;
-      text-align: center;
-    }
-
-    .subline {
-      text-align: center;
-      color: var(--text-light);
-      font-size: 14px;
-      max-width: 720px;
-      line-height: 1.45;
-    }
-
-    /* Chat card */
-    .chat-container {
-      width: 100%;
-      max-width: 760px;
-      background: rgba(255,255,255,0.95);
-      border: 1px solid rgba(229,231,235,0.9);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-      height: 72vh;
-      min-height: 520px;
+    .title-wrap {
       display: flex;
       flex-direction: column;
-      position: relative;
+      gap: 2px;
+      min-width: 0;
     }
 
-    /* Subtle top accent */
-    .chat-container::before {
-      content: "";
-      display: block;
-      height: 6px;
-      width: 100%;
-      background: linear-gradient(90deg, var(--kcs-blue), var(--kcs-teal), var(--kcs-orange));
+    .title {
+      font-size: 16px;
+      font-weight: 750;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .accent {
+      margin-left: auto;
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--primary);
+      box-shadow: 0 0 0 4px rgba(20, 96, 140, 0.12);
+      flex: 0 0 auto;
     }
 
     #messages {
       flex: 1;
-      padding: 18px;
+      padding: 18px 16px;
       overflow-y: auto;
       font-size: 15px;
       display: flex;
       flex-direction: column;
       gap: 12px;
+      background: #fbfcfe;
     }
 
     .msg {
@@ -138,10 +129,9 @@
 
     .user {
       align-self: flex-end;
-      background: linear-gradient(135deg, rgba(20,96,140,1), rgba(19,146,168,1));
+      background: var(--primary);
       color: #fff;
       border-radius: 14px 14px 6px 14px;
-      box-shadow: 0 10px 18px rgba(20,96,140,0.18);
     }
 
     .bot {
@@ -159,6 +149,7 @@
       gap: 6px;
       padding: 10px 12px;
     }
+
     .dot {
       width: 6px;
       height: 6px;
@@ -168,37 +159,38 @@
     }
     .dot:nth-child(2) { animation-delay: 0.15s; }
     .dot:nth-child(3) { animation-delay: 0.3s; }
+
     @keyframes bounce {
       0%, 80%, 100% { transform: translateY(0); opacity: 0.55; }
       40% { transform: translateY(-4px); opacity: 1; }
     }
 
-    .input-area {
+    .composer {
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      padding: 12px 12px 10px;
       display: flex;
-      border-top: 1px solid rgba(229,231,235,0.9);
-      padding: 10px;
-      background: rgba(255,255,255,0.98);
       gap: 10px;
+      align-items: center;
     }
 
     #input {
       flex: 1;
       padding: 11px 12px;
       border-radius: 12px;
-      border: 1px solid rgba(229,231,235,0.95);
+      border: 1px solid var(--border);
       outline: none;
       font-size: 15px;
-      background: #fbfbfd;
+      background: #ffffff;
     }
 
     #input:focus {
-      border-color: rgba(19,146,168,0.8);
-      box-shadow: 0 0 0 4px rgba(19,146,168,0.16);
-      background: #fff;
+      border-color: rgba(20, 96, 140, 0.55);
+      box-shadow: var(--focus);
     }
 
-    button {
-      background: linear-gradient(135deg, rgba(20,96,140,1), rgba(250,116,45,0.98));
+    #sendBtn {
+      background: var(--primary);
       border: none;
       border-radius: 12px;
       color: white;
@@ -206,50 +198,43 @@
       font-size: 15px;
       font-weight: 650;
       cursor: pointer;
-      transition: transform 0.05s ease, filter 0.15s ease;
       min-width: 110px;
     }
 
-    button:hover { filter: brightness(0.98) saturate(1.05); }
-    button:active { transform: translateY(1px); }
-    button:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
+    #sendBtn:hover { background: var(--primary-hover); }
+    #sendBtn:disabled { opacity: 0.65; cursor: not-allowed; }
 
     .status {
       font-size: 12px;
       color: #b91c1c;
-      padding: 0 12px 10px;
-      background: rgba(255,255,255,0.98);
+      padding: 0 12px 12px;
+      background: var(--surface);
+      min-height: 18px;
     }
 
-    /* Small screens */
     @media (max-width: 520px) {
-      .chat-container { min-height: 520px; }
+      .app { height: 82vh; min-height: 540px; }
       .msg { max-width: 88%; }
-      h1 { font-size: 22px; }
-      .logo { height: 38px; }
+      .logo { height: 30px; }
+      #sendBtn { min-width: 96px; }
     }
   </style>
 </head>
 
 <body>
-  <div class="header">
-    <div class="brand-badge">
+  <div class="app">
+    <div class="topbar">
       <img src="kcs_logo_original.png" alt="KCS Logo" class="logo" />
-      <div class="brand-text">Keuter Communication Systems</div>
+      <div class="title-wrap">
+        <div class="title">KCS Assistent</div>
+        <div class="subtitle">KI-Systeme, Automatisierung, Websites</div>
+      </div>
+      <div class="accent" aria-hidden="true"></div>
     </div>
 
-    <h1>KCS Assistent</h1>
-
-    <p class="subline">
-      <strong>Demo-Version:</strong> KI-Assistent für Digitalisierung: Chatbots, KI-Rezeption, Automatisierung und Websites mit integrierter KI.
-      Inhalte und Funktionen werden individuell an Ihr Unternehmen angepasst.
-    </p>
-  </div>
-
-  <div class="chat-container">
     <div id="messages"></div>
 
-    <div class="input-area">
+    <div class="composer">
       <input id="input" type="text" placeholder="Ihre Nachricht…" />
       <button id="sendBtn" type="button">Senden</button>
     </div>
@@ -261,14 +246,14 @@
     (() => {
       "use strict";
 
-      const CONFIG = {
+      /**
+       * Konfiguration (einfach anpassbar, ohne Logik anzufassen)
+       */
+      const CONFIG = Object.freeze({
         endpoint: "/api/chat",
         timeoutMs: 25000,
-
         intro:
-          "Willkommen bei KCS. Was benötigen Sie – Chatbot, KI-Rezeption, Automatisierung oder eine Website mit KI?",
-
-        // Wichtig: kurze Antworten erzwingen + 1 Frage pro Turn
+          "Willkommen bei KCS. Wobei kann ich helfen – Chatbot, KI-Rezeption, Automatisierung oder Website mit KI?",
         systemPrompt:
           "Du bist der digitale Assistent von KCS (Keuter Communication Systems), einem Digitalisierungsunternehmen für KI-Systeme. " +
           "Du berätst zu: KI-Chatbots, KI-Rezeptionisten (Chat/Telefon/WhatsApp je nach Setup), Automatisierung sowie Websites mit integrierter KI. " +
@@ -276,8 +261,11 @@
           "Stelle pro Antwort höchstens 1 gezielte Rückfrage. " +
           "Keine falschen Versprechen: Behaupte keine Integrationen, wenn sie nicht bestätigt sind. " +
           "Keine sensiblen Daten anfordern. Ton: professionell, lösungsorientiert."
-      };
+      });
 
+      /**
+       * DOM
+       */
       const els = {
         messages: document.getElementById("messages"),
         input: document.getElementById("input"),
@@ -290,45 +278,62 @@
         return;
       }
 
-      const history = [{ role: "system", content: CONFIG.systemPrompt }];
-      let busy = false;
+      /**
+       * State
+       */
+      const state = {
+        busy: false,
+        history: [{ role: "system", content: CONFIG.systemPrompt }]
+      };
 
       function setStatus(text) {
         els.status.textContent = text || "";
       }
 
-      function setBusy(state) {
-        busy = state;
-        els.sendBtn.disabled = state;
+      function setBusy(isBusy) {
+        state.busy = isBusy;
+        els.sendBtn.disabled = isBusy;
       }
 
-      function appendMessage(text, role) {
-        const el = document.createElement("div");
-        el.className = "msg " + role;
-        el.textContent = text;
-        els.messages.appendChild(el);
+      function scrollToBottom() {
         els.messages.scrollTop = els.messages.scrollHeight;
-        return el;
+      }
+
+      function appendMessage(text, roleClass) {
+        const node = document.createElement("div");
+        node.className = "msg " + roleClass;
+        node.textContent = text;
+        els.messages.appendChild(node);
+        scrollToBottom();
+        return node;
       }
 
       function appendTypingBubble() {
         const wrapper = document.createElement("div");
         wrapper.className = "msg bot";
+
         const typing = document.createElement("div");
         typing.className = "typing";
-        typing.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+        typing.innerHTML =
+          '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+
         wrapper.appendChild(typing);
         els.messages.appendChild(wrapper);
-        els.messages.scrollTop = els.messages.scrollHeight;
+        scrollToBottom();
         return wrapper;
       }
 
-      function extractReply(data) {
-        if (!data || typeof data !== "object") return null;
-        const direct = data.reply ?? data.message ?? data.response ?? data.answer;
+      function extractReply(payload) {
+        if (!payload || typeof payload !== "object") return null;
+
+        const direct =
+          payload.reply ?? payload.message ?? payload.response ?? payload.answer;
+
         if (typeof direct === "string" && direct.trim()) return direct.trim();
-        const choice = data.choices?.[0]?.message?.content;
+
+        const choice = payload.choices?.[0]?.message?.content;
         if (typeof choice === "string" && choice.trim()) return choice.trim();
+
         return null;
       }
 
@@ -343,6 +348,7 @@
             body: JSON.stringify(body),
             signal: controller.signal
           });
+
           const data = await res.json().catch(() => ({}));
           return { res, data };
         } finally {
@@ -350,8 +356,8 @@
         }
       }
 
-      async function sendMessage() {
-        if (busy) return;
+      async function handleSend() {
+        if (state.busy) return;
 
         const text = els.input.value.trim();
         if (!text) return;
@@ -360,40 +366,46 @@
         setStatus("");
 
         appendMessage(text, "user");
-        history.push({ role: "user", content: text });
+        state.history.push({ role: "user", content: text });
         els.input.value = "";
 
-        // Thinking bubble
         const typingEl = appendTypingBubble();
 
         try {
           const { res, data } = await postJson(
             CONFIG.endpoint,
-            { messages: history, message: text },
+            { messages: state.history, message: text },
             CONFIG.timeoutMs
           );
 
           if (!res.ok) {
             typingEl.remove();
-            appendMessage("Entschuldigung, es gab ein Problem bei der Anfrage. Bitte erneut versuchen.", "bot");
+            appendMessage(
+              "Entschuldigung, es gab ein Problem bei der Anfrage. Bitte erneut versuchen.",
+              "bot"
+            );
             setStatus("Fehler bei der Serverantwort.");
             return;
           }
 
-          const reply = extractReply(data) || "Ich konnte dazu gerade keine passende Antwort liefern. Können Sie das kurz präzisieren?";
+          const reply =
+            extractReply(data) ||
+            "Ich konnte dazu gerade keine passende Antwort liefern. Können Sie das kurz präzisieren?";
 
           typingEl.remove();
           appendMessage(reply, "bot");
-          history.push({ role: "assistant", content: reply });
+          state.history.push({ role: "assistant", content: reply });
         } catch (err) {
           typingEl.remove();
           const isTimeout = err && err.name === "AbortError";
+
           appendMessage(
             isTimeout
               ? "Zeitüberschreitung. Bitte versuchen Sie es erneut."
               : "Verbindungsfehler. Bitte versuchen Sie es später erneut.",
             "bot"
           );
+
           setStatus(isTimeout ? "Timeout." : "Verbindungsfehler.");
         } finally {
           setBusy(false);
@@ -401,14 +413,17 @@
         }
       }
 
-      els.sendBtn.addEventListener("click", sendMessage);
-      els.input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          sendMessage();
-        }
-      });
+      function onKeyDown(e) {
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        handleSend();
+      }
 
+      // Events
+      els.sendBtn.addEventListener("click", handleSend);
+      els.input.addEventListener("keydown", onKeyDown);
+
+      // Init
       appendMessage(CONFIG.intro, "bot");
       els.input.focus();
     })();
