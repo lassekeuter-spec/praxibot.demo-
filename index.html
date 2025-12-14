@@ -1,224 +1,161 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Praxibot – Patientenassistent</title>
-  <meta name="description" content="Demo eines digitalen Praxisassistenten für organisatorische Anfragen (Termine, Sprechzeiten, Rezepte)." />
 
   <style>
-    :root{
+    :root {
       --bg: #f6f7f9;
-      --surface: #ffffff;
-      --text: #111827;
-      --muted: #6b7280;
-      --border: #e5e7eb;
+      --text: #1a1a1a;
+      --text-light: #4f4f4f;
+      --white: #ffffff;
+      --border: #dcdfe3;
       --primary: #2f67c2;
-      --primary-strong: #2557a3;
-      --bot: #f1f5f9;
-      --shadow: 0 8px 30px rgba(17, 24, 39, .08);
-
-      --radius: 14px;
-      --radius-sm: 10px;
-      --container: 560px;
-      --focus: 0 0 0 4px rgba(47, 103, 194, .20);
     }
 
-    * { box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
+    * {
       margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
       background: var(--bg);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 14px;
       color: var(--text);
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      line-height: 1.5;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
-
-    .page {
-      max-width: var(--container);
-      margin: 0 auto;
-      padding: 36px 14px 56px;
-      display: grid;
-      gap: 18px;
-    }
-
-    header {
-      text-align: center;
-      display: grid;
-      gap: 8px;
     }
 
     h1 {
-      margin: 0;
       font-size: 22px;
-      font-weight: 650;
-      letter-spacing: -0.01em;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: var(--text);
+      text-align: center;
     }
 
-    .subtitle {
-      margin: 0 auto;
-      max-width: 52ch;
-      color: var(--muted);
+    .demo-hinweis {
+      text-align: center;
+      color: var(--text-light);
       font-size: 14px;
+      max-width: 520px;
+      margin-top: 0;
+      margin-bottom: 20px;
+      line-height: 1.4;
     }
 
-    .card {
-      background: var(--surface);
+    .chat-container {
+      width: 100%;
+      max-width: 520px;
+      background: var(--white);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-      display: grid;
-      grid-template-rows: 1fr auto;
-      min-height: 68vh;
-    }
-
-    .chat {
-      padding: 18px;
-      overflow: auto;
+      border-radius: 12px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      height: 70vh;
+      overflow: hidden;
+    }
+
+    #messages {
+      flex: 1;
+      padding: 18px;
+      overflow-y: auto;
+      font-size: 15px;
+      display: flex;
+      flex-direction: column;
     }
 
     .msg {
-      max-width: 86%;
-      padding: 10px 12px;
-      border-radius: var(--radius-sm);
-      border: 1px solid transparent;
-      word-wrap: break-word;
-      white-space: pre-wrap;
+      margin-bottom: 14px;
+      line-height: 1.45;
+      max-width: 85%;
     }
 
-    .msg--user {
+    .user {
       align-self: flex-end;
       background: var(--primary);
-      color: #fff;
-      border-top-right-radius: 6px;
-    }
-
-    .msg--bot {
-      align-self: flex-start;
-      background: var(--bot);
-      color: var(--text);
-      border-color: #e2e8f0;
-      border-top-left-radius: 6px;
-    }
-
-    .meta {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
+      color: white;
       padding: 10px 12px;
+      border-radius: 10px 10px 0 10px;
+    }
+
+    .bot {
+      align-self: flex-start;
+      background: #eef1f6;
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 10px 10px 10px 0;
+      border: 1px solid #e3e6eb;
+    }
+
+    .input-area {
+      display: flex;
       border-top: 1px solid var(--border);
-      background: linear-gradient(#fff, #fbfbfc);
+      padding: 10px;
+      background: var(--white);
+    }
+
+    #input {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+     outline: none;
+      font-size: 15px;
+      background: #fafbfc;
+    }
+
+    #input:focus {
+      border-color: var(--primary);
+    }
+
+    button {
+      margin-left: 10px;
+      background: var(--primary);
+      border: none;
+      border-radius: 8px;
+      color: white;
+      padding: 10px 16px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #2557a3;
     }
 
     .status {
       font-size: 12px;
-      color: var(--muted);
-      min-height: 1.1em;
-    }
-
-    .status[aria-live="polite"] strong { color: #b91c1c; }
-
-    form {
-      display: flex;
-      gap: 10px;
-      width: 100%;
-      align-items: flex-end;
-    }
-
-    textarea {
-      flex: 1;
-      resize: none;
-      min-height: 42px;
-      max-height: 120px;
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      outline: none;
-      font-size: 15px;
-      background: #fafbfc;
-      color: var(--text);
-    }
-
-    textarea:focus {
-      border-color: rgba(47, 103, 194, .65);
-      box-shadow: var(--focus);
-      background: #fff;
-    }
-
-    button {
-      border: 0;
-      border-radius: 12px;
-      padding: 10px 14px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      background: var(--primary);
-      color: #fff;
-      white-space: nowrap;
-      min-width: 108px;
-      transition: transform .05s ease, background .15s ease;
-    }
-
-    button:hover { background: var(--primary-strong); }
-    button:active { transform: translateY(1px); }
-    button:focus-visible { outline: none; box-shadow: var(--focus); }
-    button[disabled] { opacity: .65; cursor: not-allowed; transform: none; }
-
-    .footer-note {
-      padding: 0 12px 12px;
-      color: var(--muted);
-      font-size: 12px;
-      border-top: 1px dashed var(--border);
-      background: #fff;
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      button { transition: none; }
+      color: #b91c1c;
+      margin-top: 4px;
+      padding: 0 12px 10px;
     }
   </style>
 </head>
 
 <body>
-  <main class="page">
-    <header>
-      <h1>Praxibot – Ihr digitaler Patientenassistent</h1>
-      <p class="subtitle">
-        <strong>Demo-Version:</strong> Diese Vorschau zeigt einen organisatorischen Assistenten (z. B. Termine, Sprechzeiten, Rezepte).
-        Medizinische Diagnosen oder Therapieempfehlungen erfolgen nicht.
-      </p>
-    </header>
+  <h1>Praxibot – Ihr digitaler Patientenassistent</h1>
 
-    <section class="card" aria-label="Chat">
-      <div
-        id="chat"
-        class="chat"
-        role="log"
-        aria-live="polite"
-        aria-relevant="additions"
-      ></div>
+  <p class="demo-hinweis">
+    <strong>Demo-Version:</strong> Diese Vorschau zeigt, wie ein digitaler Assistent für Ihre Praxis aussehen kann.
+    Inhalte, Design und Funktionen werden individuell an jede Praxis angepasst.
+  </p>
 
-      <div class="meta">
-        <div id="status" class="status" aria-live="polite"></div>
+  <div class="chat-container">
+    <div id="messages"></div>
 
-        <form id="chatForm" autocomplete="off">
-          <label for="input" class="sr-only" style="position:absolute;left:-9999px;">Nachricht</label>
-          <textarea id="input" placeholder="Ihre Nachricht … (Enter = senden, Shift+Enter = Zeilenumbruch)"></textarea>
-          <button id="sendBtn" type="submit">Senden</button>
-        </form>
-      </div>
+    <div class="input-area">
+      <input id="input" type="text" placeholder="Ihre Nachricht…" />
+      <button id="sendBtn" type="button">Senden</button>
+    </div>
 
-      <div class="footer-note">
-        Hinweis: Bei akuten Beschwerden/Notfällen bitte 112 wählen oder den ärztlichen Bereitschaftsdienst kontaktieren (je nach Situation).
-      </div>
-    </section>
-  </main>
+    <div id="status" class="status"></div>
+  </div>
 
   <script>
     (() => {
@@ -226,68 +163,39 @@
 
       const CONFIG = {
         endpoint: "/api/chat",
-        timezone: "Europe/Berlin",
-        maxHistory: 24,
-        requestTimeoutMs: 25_000,
-        introMessage:
-          "Willkommen beim Praxibot (Demo). Wie kann ich Ihnen organisatorisch helfen – z. B. zu Terminen, Sprechzeiten oder Rezeptanfragen?"
+        timeoutMs: 25000,
+        intro:
+          "Willkommen beim Praxibot (Demo). Stellen Sie Ihre Frage rund um Termine, Sprechzeiten oder Rezepte.",
+        systemPrompt:
+          "Du bist der digitale Praxisassistent (Praxibot) einer Arztpraxis. " +
+          "Du beantwortest nur organisatorische Fragen zu Sprechzeiten, Rezepten, Terminen usw. " +
+          "Du gibst keine medizinischen Diagnosen oder Therapieempfehlungen und verweist bei Notfällen auf den Notruf 112."
       };
 
       const els = {
-        chat: document.getElementById("chat"),
+        messages: document.getElementById("messages"),
         input: document.getElementById("input"),
-        form: document.getElementById("chatForm"),
-        send: document.getElementById("sendBtn"),
+        sendBtn: document.getElementById("sendBtn"),
         status: document.getElementById("status")
       };
 
-      const history = [
-        {
-          role: "system",
-          content:
-            "Du bist der digitale Praxisassistent (Praxibot) einer Arztpraxis. " +
-            "Du beantwortest ausschließlich organisatorische Fragen (Sprechzeiten, Termine, Rezepte, Abläufe). " +
-            "Du gibst keine medizinischen Diagnosen oder Therapieempfehlungen. " +
-            "Bei Notfällen verweise auf 112."
-        }
-      ];
+      const history = [{ role: "system", content: CONFIG.systemPrompt }];
 
-      function setStatus(text, isError = false) {
-        if (!text) {
-          els.status.textContent = "";
-          return;
-        }
-        els.status.innerHTML = isError ? `<strong>${escapeHtml(text)}</strong>` : escapeHtml(text);
-      }
+      let isSending = false;
 
-      function escapeHtml(str) {
-        return String(str)
-          .replaceAll("&", "&amp;")
-          .replaceAll("<", "&lt;")
-          .replaceAll(">", "&gt;")
-          .replaceAll('"', "&quot;")
-          .replaceAll("'", "&#039;");
+      function setStatus(text) {
+        els.status.textContent = text || "";
       }
 
       function appendMessage(text, role) {
-        const msg = document.createElement("div");
-        msg.className = `msg ${role === "user" ? "msg--user" : "msg--bot"}`;
-        msg.textContent = text;
-        els.chat.appendChild(msg);
-        els.chat.scrollTop = els.chat.scrollHeight;
-      }
-
-      function pruneHistory() {
-        // system + (maxHistory * 2) roughly (user+assistant). Keep it simple:
-        const system = history[0];
-        const rest = history.slice(1);
-        const trimmed = rest.slice(-CONFIG.maxHistory);
-        history.length = 0;
-        history.push(system, ...trimmed);
+        const div = document.createElement("div");
+        div.className = "msg " + role;
+        div.textContent = text;
+        els.messages.appendChild(div);
+        els.messages.scrollTop = els.messages.scrollHeight;
       }
 
       function normalizeReply(data) {
-        // Unterstützt verschiedene Response-Formate.
         if (!data || typeof data !== "object") return null;
 
         const direct =
@@ -301,19 +209,9 @@
         return null;
       }
 
-      function setBusy(isBusy) {
-        els.send.disabled = isBusy;
-        els.input.disabled = isBusy;
-        if (isBusy) {
-          setStatus("Antwort wird erstellt …");
-        } else {
-          setStatus("");
-        }
-      }
-
       async function postJsonWithTimeout(url, payload, timeoutMs) {
         const controller = new AbortController();
-        const t = setTimeout(() => controller.abort(), timeoutMs);
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
 
         try {
           const res = await fetch(url, {
@@ -326,82 +224,69 @@
           const data = await res.json().catch(() => ({}));
           return { res, data };
         } finally {
-          clearTimeout(t);
+          clearTimeout(timer);
         }
       }
 
       async function sendMessage() {
+        if (isSending) return;
+
         const text = els.input.value.trim();
         if (!text) return;
+
+        isSending = true;
+        els.sendBtn.disabled = true;
 
         setStatus("");
         appendMessage(text, "user");
         history.push({ role: "user", content: text });
         els.input.value = "";
-        autoResize();
-
-        pruneHistory();
-        setBusy(true);
 
         try {
           const { res, data } = await postJsonWithTimeout(
             CONFIG.endpoint,
-            { messages: history, message: text, tz: CONFIG.timezone },
-            CONFIG.requestTimeoutMs
+            { messages: history, message: text },
+            CONFIG.timeoutMs
           );
 
           if (!res.ok) {
-            const err = data?.error || `Serverfehler (HTTP ${res.status})`;
-            appendMessage("Entschuldigung, es gab ein Problem bei der Anfrage. Bitte versuchen Sie es erneut.", "bot");
-            setStatus(err, true);
+            appendMessage("Fehler: " + (data.error || "Serverproblem."), "bot");
+            setStatus("Fehler bei der Serverantwort.");
             return;
           }
 
-          const reply = normalizeReply(data) || "Ich konnte dazu leider keine passende Antwort erzeugen. Können Sie Ihre Frage bitte konkretisieren?";
+          const reply =
+            normalizeReply(data) ||
+            "Es ist ein unerwarteter Fehler aufgetreten.";
+
           appendMessage(reply, "bot");
           history.push({ role: "assistant", content: reply });
-          pruneHistory();
-        } catch (e) {
-          const isAbort = e && (e.name === "AbortError");
+        } catch (err) {
+          const isTimeout = err && err.name === "AbortError";
           appendMessage(
-            isAbort
-              ? "Die Anfrage hat zu lange gedauert. Bitte versuchen Sie es erneut."
-              : "Verbindungsfehler. Bitte prüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.",
+            isTimeout
+              ? "Zeitüberschreitung. Bitte versuchen Sie es erneut."
+              : "Verbindungsfehler. Bitte versuchen Sie es später erneut.",
             "bot"
           );
-          setStatus(isAbort ? "Timeout bei der Serveranfrage." : "Netzwerkfehler.", true);
+          setStatus(isTimeout ? "Timeout." : "Verbindungsfehler.");
         } finally {
-          setBusy(false);
+          isSending = false;
+          els.sendBtn.disabled = false;
           els.input.focus();
         }
       }
 
-      function autoResize() {
-        els.input.style.height = "auto";
-        els.input.style.height = Math.min(els.input.scrollHeight, 120) + "px";
-      }
+      els.sendBtn.addEventListener("click", sendMessage);
 
-      // Submit handler
-      els.form.addEventListener("submit", (e) => {
-        e.preventDefault();
-        if (els.send.disabled) return;
-        sendMessage();
-      });
-
-      // Enter = senden, Shift+Enter = neue Zeile
       els.input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
+        if (e.key === "Enter") {
           e.preventDefault();
-          els.form.requestSubmit();
+          sendMessage();
         }
       });
 
-      els.input.addEventListener("input", autoResize);
-
-      // Intro
-      appendMessage(CONFIG.introMessage, "bot");
-      els.input.focus();
-      autoResize();
+      appendMessage(CONFIG.intro, "bot");
     })();
   </script>
 </body>
