@@ -2,194 +2,761 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title>KCS Assistant</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KCS Assistent</title>
+
   <style>
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #f4f6f8;
-      margin: 0;
-      padding: 0;
+    :root {
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --text: #111827;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+
+      --kcs-blue: #14608c;
+      --primary: var(--kcs-blue);
+      --primary-hover: #0f4e72;
+
+      --bot-bg: #eef1f6;
+      --shadow: 0 14px 40px rgba(17, 24, 39, 0.12);
+      --radius: 16px;
+      --radius-sm: 12px;
+      --focus: 0 0 0 4px rgba(20, 96, 140, 0.18);
+      --maxw: 760px;
     }
-    .chat-wrapper {
-      max-width: 420px;
-      margin: 40px auto;
-      background: #fff;
-      border-radius: 16px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
+
+    body {
+      background: var(--bg);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 14px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: var(--maxw);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      height: min(78vh, 720px);
+      min-height: 560px;
       display: flex;
       flex-direction: column;
-      height: 80vh;
     }
-    .header {
-      padding: 16px;
-      border-bottom: 1px solid #e5e7eb;
+
+    .topbar {
       display: flex;
-      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .logo { height: 34px; width: auto; display: block; }
+
+    .title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .title {
+      font-size: 16px;
+      font-weight: 750;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .availability {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: #f9fafb;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+
+    .dot-online { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+
+    #messages {
+      flex: 1;
+      padding: 18px 16px;
+      overflow-y: auto;
+      font-size: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: #fbfcfe;
+    }
+
+    .msg {
+      line-height: 1.45;
+      max-width: 78%;
+      padding: 11px 12px;
+      border-radius: var(--radius-sm);
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .user {
+      align-self: flex-end;
+      background: var(--primary);
+      color: #ffffff;
+      border-radius: 14px 14px 6px 14px;
+    }
+
+    .bot {
+      align-self: flex-start;
+      background: var(--bot-bg);
+      color: var(--text);
+      border: 1px solid #e3e6eb;
+      border-radius: 14px 14px 14px 6px;
+    }
+
+    .typing {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 12px;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(17, 24, 39, 0.45);
+      animation: bounce 1.05s infinite ease-in-out;
+    }
+
+    .dot:nth-child(2) { animation-delay: 0.15s; }
+    .dot:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.55; }
+      40% { transform: translateY(-4px); opacity: 1; }
+    }
+
+    .composer {
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      padding: 12px;
+      display: flex;
+      gap: 10px;
       align-items: center;
     }
-    .messages {
+
+    #input {
       flex: 1;
-      padding: 16px;
-      overflow-y: auto;
-    }
-    .bubble {
-      margin-bottom: 12px;
-      padding: 10px 14px;
+      padding: 11px 12px;
       border-radius: 12px;
-      max-width: 85%;
-      font-size: 14px;
+      border: 1px solid var(--border);
+      outline: none;
+      font-size: 15px;
+      background: #ffffff;
     }
-    .bot {
-      background: #eef2f6;
+
+    #input:focus {
+      border-color: rgba(20, 96, 140, 0.55);
+      box-shadow: var(--focus);
     }
-    .user {
-      background: #0f4c75;
-      color: #fff;
-      margin-left: auto;
-    }
-    .thinking {
-      font-style: italic;
-      opacity: 0.6;
-    }
-    .input {
-      display: flex;
-      padding: 12px;
-      border-top: 1px solid #e5e7eb;
-    }
-    input {
-      flex: 1;
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px solid #d1d5db;
-    }
-    button {
-      margin-left: 8px;
-      padding: 10px 14px;
-      border-radius: 8px;
+
+    #sendBtn {
+      background: var(--primary);
       border: none;
-      background: #0f4c75;
+      border-radius: 12px;
       color: white;
+      padding: 11px 16px;
+      font-size: 15px;
+      font-weight: 650;
       cursor: pointer;
+      min-width: 110px;
+    }
+
+    #sendBtn:hover { background: var(--primary-hover); }
+    #sendBtn:disabled { opacity: 0.65; cursor: not-allowed; }
+
+    .status {
+      font-size: 12px;
+      color: #b91c1c;
+      padding: 0 12px 12px;
+      background: var(--surface);
+      min-height: 18px;
+    }
+
+    @media (max-width: 520px) {
+      .app { height: 82vh; min-height: 540px; }
+      .msg { max-width: 88%; }
+      .logo { height: 30px; }
+      #sendBtn { min-width: 96px; }
     }
   </style>
 </head>
+
 <body>
+  <div class="app">
+    <div class="topbar">
+      <img src="kcs_logo_original.png" alt="KCS Logo" class="logo" />
+      <div class="title-wrap">
+        <div class="title">KCS Assistent</div>
+        <div class="subtitle">KI-Systeme · Automatisierung · Websites</div>
+      </div>
 
-<div class="chat-wrapper">
-  <div class="header">
-    <strong>KCS Assistant</strong>
-    <span>🟢 24/7 online</span>
-  </div>
-
-  <div class="messages" id="messages">
-    <div class="bubble bot">
-      Hallo und willkommen bei KCS 👋  
-      Möchten Sie einen Termin vereinbaren oder haben Sie eine kurze Frage?
+      <div class="availability">
+        <span class="dot-online"></span>
+        <span>24/7 online</span>
+      </div>
     </div>
+
+    <div id="messages"></div>
+
+    <div class="composer">
+      <input id="input" type="text" placeholder="Ihre Nachricht…" />
+      <button id="sendBtn" type="button">Senden</button>
+    </div>
+
+    <div id="status" class="status"></div>
   </div>
 
-  <div class="input">
-    <input id="input" placeholder="Ihre Nachricht…" />
-    <button onclick="send()">Senden</button>
-  </div>
-</div>
+  <script>
+    (() => {
+      "use strict";
 
-<script>
-let pendingBooking = null;
+      const CONFIG = {
+        chatEndpoint: "/api/chat",
+        calendarEndpoint: "/api/calendar-book",
+        timeoutMs: 25000,
 
-function addMessage(text, type) {
-  const div = document.createElement("div");
-  div.className = `bubble ${type}`;
-  div.textContent = text;
-  document.getElementById("messages").appendChild(div);
-  div.scrollIntoView({ behavior: "smooth" });
-}
+        welcome:
+          "Hallo und willkommen bei KCS. Ich unterstütze gern bei KI-Chatbots, KI-Rezeption, Automatisierung oder einer Website mit KI. Möchten Sie direkt einen Termin vereinbaren?",
 
-function showThinking() {
-  addMessage("…", "bot thinking");
-}
+        booking: {
+          timeZone: "Europe/Berlin",
+          durationMinutes: 45,
 
-function clearThinking() {
-  const bubbles = document.querySelectorAll(".thinking");
-  bubbles.forEach(b => b.remove());
-}
+          // Arbeitsfenster
+          businessDaysOnly: true,  // Mo–Fr
+          businessStart: "09:00",
+          businessEnd: "18:00",    // letzter Start ist < 18:00 (du kannst das anpassen)
 
-function normalizeToSlot(date) {
-  const minutes = date.getMinutes();
-  const slot = Math.ceil(minutes / 45) * 45;
-  date.setMinutes(slot === 60 ? 0 : slot);
-  if (slot === 60) date.setHours(date.getHours() + 1);
-  date.setSeconds(0);
-  date.setMilliseconds(0);
-  return date;
-}
+          // Slot-Grid: 45-Minuten-Blöcke ab businessStart (09:00 -> 09:45 -> 10:30 ...)
+          slotMinutes: 45
+        },
 
-async function send() {
-  const input = document.getElementById("input");
-  const text = input.value.trim();
-  if (!text) return;
-  input.value = "";
+        systemPrompt:
+          "Du bist der digitale Assistent von KCS (Keuter Communication Systems). " +
+          "Antworte kurz, freundlich und professionell (max. 2–4 Sätze)."
+      };
 
-  addMessage(text, "user");
-  showThinking();
+      const els = {
+        messages: document.getElementById("messages"),
+        input: document.getElementById("input"),
+        sendBtn: document.getElementById("sendBtn"),
+        status: document.getElementById("status")
+      };
 
-  setTimeout(async () => {
-    clearThinking();
+      const state = {
+        busy: false,
+        history: [{ role: "system", content: CONFIG.systemPrompt }],
+        mode: "IDLE", // IDLE | COLLECT | CONFIRM
+        pending: null // { proposedParts }
+      };
 
-    // JA/NEIN-Bestätigung
-    if (pendingBooking && pendingBooking.awaitingConfirmation) {
-      if (text.toLowerCase().startsWith("ja")) {
-        await fetch("/api/calendar-book", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            start: pendingBooking.start.toISOString(),
-            end: new Date(pendingBooking.start.getTime() + 45 * 60000).toISOString(),
-            summary: "KCS Beratungstermin",
-            description: "Erstellt durch KCS Assistant"
-          })
-        });
-        addMessage("Perfekt – der Termin ist eingetragen ✅", "bot");
-        pendingBooking = null;
-        return;
-      } else {
-        pendingBooking = null;
-        addMessage("Alles klar. Nennen Sie mir gern einen anderen Zeitpunkt.", "bot");
-        return;
+      // ---------- UI ----------
+      function setStatus(text) { els.status.textContent = text || ""; }
+      function setBusy(v) { state.busy = v; els.sendBtn.disabled = v; }
+      function scrollToBottom() { els.messages.scrollTop = els.messages.scrollHeight; }
+
+      function appendMessage(text, role) {
+        const div = document.createElement("div");
+        div.className = "msg " + role;
+        div.textContent = text;
+        els.messages.appendChild(div);
+        scrollToBottom();
+        return div;
       }
-    }
 
-    // ZEIT ERKENNEN (vereinfachtes Beispiel)
-    if (text.match(/\d{1,2}:\d{2}/)) {
-      const now = new Date();
-      const time = text.match(/(\d{1,2}):(\d{2})/);
-      const date = new Date(now);
-      date.setHours(+time[1], +time[2], 0, 0);
+      function appendTypingBubble() {
+        const wrapper = document.createElement("div");
+        wrapper.className = "msg bot";
+        const typing = document.createElement("div");
+        typing.className = "typing";
+        typing.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+        wrapper.appendChild(typing);
+        els.messages.appendChild(wrapper);
+        scrollToBottom();
+        return wrapper;
+      }
 
-      const slotDate = normalizeToSlot(new Date(date));
+      async function withThinking(fn) {
+        const bubble = appendTypingBubble();
+        try { return await fn(); } finally { bubble.remove(); }
+      }
 
-      if (slotDate.getTime() !== date.getTime()) {
-        pendingBooking = { start: slotDate, awaitingConfirmation: true };
-        addMessage(
-          `Leider ist ${time[0]} nicht verfügbar. Würde ${slotDate.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})} passen?`,
+      async function postJson(url, body, timeoutMs) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+            signal: controller.signal
+          });
+          const data = await res.json().catch(() => ({}));
+          return { res, data };
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+
+      function extractReply(payload) {
+        const direct = payload?.reply ?? payload?.message ?? payload?.response ?? payload?.answer;
+        if (typeof direct === "string" && direct.trim()) return direct.trim();
+        const choice = payload?.choices?.[0]?.message?.content;
+        if (typeof choice === "string" && choice.trim()) return choice.trim();
+        return null;
+      }
+
+      // ---------- Date/Time (Berlin) ----------
+      const TZ = CONFIG.booking.timeZone;
+
+      function pad2(n) { return String(n).padStart(2, "0"); }
+
+      function nowBerlinYMD() {
+        const dtf = new Intl.DateTimeFormat("de-DE", {
+          timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit"
+        });
+        const parts = dtf.formatToParts(new Date());
+        const get = (t) => parts.find(p => p.type === t)?.value;
+        return { year: Number(get("year")), month: Number(get("month")), day: Number(get("day")) };
+      }
+
+      function toUTCNoonDate({ year, month, day }) {
+        return new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+      }
+
+      function addDaysBerlin(dateParts, days) {
+        const d = toUTCNoonDate(dateParts);
+        d.setUTCDate(d.getUTCDate() + days);
+        return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
+      }
+
+      function berlinOffsetString({ year, month, day }) {
+        const fmt = new Intl.DateTimeFormat("en-US", {
+          timeZone: TZ,
+          timeZoneName: "shortOffset",
+          year: "numeric", month: "2-digit", day: "2-digit",
+          hour: "2-digit", minute: "2-digit", hour12: false
+        });
+        const parts = fmt.formatToParts(new Date(Date.UTC(year, month - 1, day, 12, 0, 0)));
+        const tzPart = parts.find(p => p.type === "timeZoneName")?.value || "GMT+1";
+        const m = tzPart.match(/GMT([+-]\d{1,2})/);
+        const hours = m ? Number(m[1]) : 1;
+        const sign = hours >= 0 ? "+" : "-";
+        return `${sign}${pad2(Math.abs(hours))}:00`;
+      }
+
+      function toBerlinISO(parts) {
+        const off = berlinOffsetString(parts);
+        return `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}T${pad2(parts.hour)}:${pad2(parts.minute)}:00${off}`;
+      }
+
+      function formatDate(p) { return `${pad2(p.day)}.${pad2(p.month)}.${p.year}`; }
+      function formatTime(p) { return `${pad2(p.hour)}:${pad2(p.minute)}`; }
+
+      function parseTimeHHMM(text) {
+        const m = text.match(/\b([01]?\d|2[0-3])[:.]([0-5]\d)\b/);
+        if (!m) return null;
+        return { hour: Number(m[1]), minute: Number(m[2]) };
+      }
+
+      function parseExplicitDate(text) {
+        let m = text.match(/\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b/);
+        if (m) return { day: Number(m[1]), month: Number(m[2]), year: Number(m[3]) };
+
+        m = text.match(/\b(\d{1,2})\.(\d{1,2})\b/);
+        if (m) {
+          const now = nowBerlinYMD();
+          return { day: Number(m[1]), month: Number(m[2]), year: now.year };
+        }
+        return null;
+      }
+
+      function parseRelativeDate(text) {
+        const t = text.toLowerCase();
+        const today = nowBerlinYMD();
+        if (/\b(heute)\b/.test(t)) return today;
+        if (/\b(übermorgen|uebermorgen)\b/.test(t)) return addDaysBerlin(today, 2);
+        if (/\b(morgen)\b/.test(t)) return addDaysBerlin(today, 1);
+        return null;
+      }
+
+      function weekdayIndex(dateParts) {
+        // 0 So ... 6 Sa (in Berlin, aber via UTC-Noon stabil)
+        const d = toUTCNoonDate(dateParts);
+        // d.getUTCDay() entspricht der Day-Index; durch UTC-Noon driftet nicht.
+        return d.getUTCDay();
+      }
+
+      function isBusinessDay(p) {
+        if (!CONFIG.booking.businessDaysOnly) return true;
+        const wd = weekdayIndex(p);
+        return wd !== 0 && wd !== 6;
+      }
+
+      function parseHHMM(str) {
+        const m = str.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+        if (!m) return null;
+        return { hour: Number(m[1]), minute: Number(m[2]) };
+      }
+
+      function minutesOfDay(p) { return p.hour * 60 + p.minute; }
+
+      function businessWindow() {
+        const s = parseHHMM(CONFIG.booking.businessStart) || { hour: 9, minute: 0 };
+        const e = parseHHMM(CONFIG.booking.businessEnd) || { hour: 18, minute: 0 };
+        return { s, e };
+      }
+
+      function isWithinBusinessHours(p) {
+        const { s, e } = businessWindow();
+        const m = minutesOfDay(p);
+        return m >= minutesOfDay(s) && m < minutesOfDay(e);
+      }
+
+      // Slot-Raster ab businessStart (z.B. 09:00 -> 09:45 -> 10:30 ...)
+      function snapToSlotGrid(p) {
+        const { s } = businessWindow();
+        const base = minutesOfDay(s);
+        const t = minutesOfDay(p);
+        const step = CONFIG.booking.slotMinutes;
+
+        // wenn vor businessStart: direkt auf businessStart
+        if (t <= base) return { ...p, hour: s.hour, minute: s.minute };
+
+        const delta = t - base;
+        const k = Math.ceil(delta / step);
+        const snapped = base + k * step;
+
+        const hour = Math.floor(snapped / 60);
+        const minute = snapped % 60;
+        return { ...p, hour, minute };
+      }
+
+      function addMinutes(p, add) {
+        const total = minutesOfDay(p) + add;
+        if (total < 24 * 60) {
+          return { ...p, hour: Math.floor(total / 60), minute: total % 60 };
+        }
+        const next = addDaysBerlin(p, 1);
+        const rest = total - 24 * 60;
+        return { ...next, hour: Math.floor(rest / 60), minute: rest % 60 };
+      }
+
+      // Nächster gültiger Slot: am selben Tag weiter, erst dann nächster Tag businessStart
+      function nextValidSlot(fromParts) {
+        let p = { ...fromParts };
+
+        // Falls Wochenende -> nächster Werktag businessStart
+        while (!isBusinessDay(p)) {
+          const nextDay = addDaysBerlin(p, 1);
+          const { s } = businessWindow();
+          p = { ...nextDay, hour: s.hour, minute: s.minute };
+        }
+
+        // Auf Slotgrid runden
+        p = snapToSlotGrid(p);
+
+        // Wenn außerhalb BusinessHours -> nächster Werktag businessStart
+        if (!isWithinBusinessHours(p)) {
+          let nextDay = addDaysBerlin(p, 1);
+          while (!isBusinessDay(nextDay)) nextDay = addDaysBerlin(nextDay, 1);
+          const { s } = businessWindow();
+          p = { ...nextDay, hour: s.hour, minute: s.minute };
+          p = snapToSlotGrid(p);
+        }
+
+        return p;
+      }
+
+      // Folgeslot (45 min später), am selben Tag soweit möglich
+      function nextSlotAfter(p) {
+        const step = CONFIG.booking.slotMinutes;
+        const candidate = addMinutes(p, step);
+        return nextValidSlot(candidate);
+      }
+
+      function computeEnd(start) {
+        return addMinutes(start, CONFIG.booking.durationMinutes);
+      }
+
+      // ---------- Intent ----------
+      function looksLikeAppointmentIntent(text) {
+        return /\b(termin|buchen|buchung|meeting|call|gespräch|beratung)\b/i.test(text);
+      }
+
+      function looksLikeYes(text) {
+        return /\b(ja|yes|ok|okay|passt|genau|bitte|eintragen)\b/i.test(text);
+      }
+
+      function looksLikeNo(text) {
+        return /\b(nein|no|nicht|leider nicht|abbrechen|stopp|stop)\b/i.test(text);
+      }
+
+      function buildRequestedStart(text) {
+        const time = parseTimeHHMM(text);
+        if (!time) return { ok: false, reason: "NEED_TIME" };
+
+        const date = parseExplicitDate(text) || parseRelativeDate(text);
+        if (!date) return { ok: false, reason: "NEED_DATE" };
+
+        return { ok: true, requested: { ...date, hour: time.hour, minute: time.minute } };
+      }
+
+      // ---------- Booking flow messages ----------
+      function askForDatetime() {
+        state.mode = "COLLECT";
+        state.pending = null;
+        appendMessage("Sehr gern. Nennen Sie mir bitte Datum und Uhrzeit (z. B. „morgen 16:00“ oder „18.12 09:00“).", "bot");
+      }
+
+      function proposeAlternative(requested, proposed) {
+        const req = formatTime(requested);
+        const propTime = formatTime(proposed);
+
+        const sameDate =
+          requested.year === proposed.year &&
+          requested.month === proposed.month &&
+          requested.day === proposed.day;
+
+        const when = sameDate ? propTime : `${formatDate(proposed)} um ${propTime}`;
+
+        appendMessage(`Leider können wir um ${req} nicht. Würde Ihnen auch ${when} passen?`, "bot");
+
+        state.mode = "CONFIRM";
+        state.pending = { proposedParts: proposed };
+      }
+
+      function confirmExact(proposed) {
+        appendMessage(
+          `Soll ich den Termin am ${formatDate(proposed)} um ${formatTime(proposed)} für 45 Minuten eintragen? (Ja/Nein)`,
           "bot"
         );
-        return;
+        state.mode = "CONFIRM";
+        state.pending = { proposedParts: proposed };
       }
 
-      pendingBooking = { start: slotDate, awaitingConfirmation: true };
-      addMessage(
-        `Soll ich den Termin um ${slotDate.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})} für 45 Minuten eintragen? (Ja/Nein)`,
-        "bot"
-      );
-      return;
-    }
+      async function bookExact(proposed) {
+        const startISO = toBerlinISO(proposed);
+        const endISO = toBerlinISO(computeEnd(proposed));
 
-    addMessage("Gerne. Wobei kann ich Ihnen helfen?", "bot");
-  }, 600);
-}
-</script>
+        const payload = {
+          start: startISO,
+          end: endISO,
+          summary: "KCS – Termin",
+          description: ""
+        };
 
+        const { res, data } = await postJson(CONFIG.calendarEndpoint, payload, CONFIG.timeoutMs);
+
+        if (res.ok) return { ok: true };
+        const err = String(data?.error || data?.message || "Buchung fehlgeschlagen");
+        return { ok: false, status: res.status, error: err, detail: data };
+      }
+
+      // ---------- LLM (nur IDLE, niemals im Terminflow) ----------
+      async function sendToChat(userText) {
+        const typing = appendTypingBubble();
+        try {
+          const { res, data } = await postJson(
+            CONFIG.chatEndpoint,
+            { messages: state.history, message: userText },
+            CONFIG.timeoutMs
+          );
+          typing.remove();
+
+          if (!res.ok) {
+            appendMessage("Entschuldigung, da ist gerade etwas schiefgelaufen. Bitte versuchen Sie es nochmal.", "bot");
+            setStatus("Fehler bei der Serverantwort.");
+            return;
+          }
+
+          const reply = extractReply(data) || "Ich konnte dazu gerade nichts Passendes finden.";
+          appendMessage(reply, "bot");
+          state.history.push({ role: "assistant", content: reply });
+        } catch (e) {
+          typing.remove();
+          appendMessage("Ich habe gerade Verbindungsprobleme. Bitte versuchen Sie es gleich nochmal.", "bot");
+          setStatus("Verbindungsfehler.");
+        }
+      }
+
+      // ---------- Main ----------
+      async function handleSend() {
+        if (state.busy) return;
+
+        const text = els.input.value.trim();
+        if (!text) return;
+
+        setBusy(true);
+        setStatus("");
+
+        appendMessage(text, "user");
+        state.history.push({ role: "user", content: text });
+        els.input.value = "";
+
+        try {
+          // Wenn Nutzer im CONFIRM-Modus eine neue Zeit schreibt: als neuer Wunsch behandeln
+          const userProvidedNewDatetime = (() => {
+            const hasTime = !!parseTimeHHMM(text);
+            const hasDate = !!(parseExplicitDate(text) || parseRelativeDate(text));
+            return hasTime && hasDate;
+          })();
+
+          if (state.mode === "CONFIRM" && userProvidedNewDatetime) {
+            state.mode = "COLLECT"; // re-route
+          }
+
+          // CONFIRM
+          if (state.mode === "CONFIRM") {
+            if (!state.pending?.proposedParts) {
+              state.mode = "COLLECT";
+              appendMessage("Entschuldigung – ich habe die vorgeschlagene Zeit nicht mehr korrekt. Nennen Sie mir bitte Datum und Uhrzeit erneut.", "bot");
+              return;
+            }
+
+            if (looksLikeYes(text)) {
+              const proposed = state.pending.proposedParts;
+
+              const result = await withThinking(async () => bookExact(proposed));
+
+              if (result.ok) {
+                appendMessage("Perfekt – der Termin ist eingetragen.", "bot");
+                state.mode = "IDLE";
+                state.pending = null;
+                return;
+              }
+
+              // Konflikt -> nächster Slot anbieten
+              if (result.status === 409) {
+                await withThinking(async () => {
+                  const next = nextSlotAfter(proposed);
+                  proposeAlternative(proposed, next);
+                });
+                return;
+              }
+
+              appendMessage("Das hat leider nicht geklappt. Möchten Sie eine andere Zeit vorschlagen?", "bot");
+              console.error("Calendar booking error:", result.detail || result);
+              state.mode = "COLLECT";
+              state.pending = null;
+              return;
+            }
+
+            if (looksLikeNo(text)) {
+              await withThinking(async () => {
+                const next = nextSlotAfter(state.pending.proposedParts);
+                // Wording bleibt konsistent: „um X nicht … würde Y passen?“
+                proposeAlternative(state.pending.proposedParts, next);
+              });
+              return;
+            }
+
+            appendMessage("Kurz zur Sicherheit: Passt der vorgeschlagene Termin? Bitte „Ja“ oder „Nein“.", "bot");
+            return;
+          }
+
+          // COLLECT
+          if (state.mode === "COLLECT") {
+            const parsed = await withThinking(async () => buildRequestedStart(text));
+
+            if (!parsed.ok) {
+              if (parsed.reason === "NEED_TIME") {
+                appendMessage("Gern. Um wie viel Uhr soll der Termin starten? (z. B. 17:00)", "bot");
+              } else {
+                appendMessage("Für welches Datum? (z. B. „morgen“ oder „18.12“) – plus Uhrzeit.", "bot");
+              }
+              return;
+            }
+
+            const requested = parsed.requested;
+
+            // 1) auf Slotgrid runden
+            const snapped = snapToSlotGrid(requested);
+            // 2) dann ins Business-Fenster bringen (falls z.B. Wochenende / außerhalb Uhrzeit)
+            const proposed = nextValidSlot(snapped);
+
+            // Wenn requested nicht exakt gleich proposed -> Alternative im gewünschten Stil
+            const same =
+              requested.year === proposed.year &&
+              requested.month === proposed.month &&
+              requested.day === proposed.day &&
+              requested.hour === proposed.hour &&
+              requested.minute === proposed.minute;
+
+            if (!same) {
+              proposeAlternative(requested, proposed);
+              return;
+            }
+
+            // requested passt exakt -> confirm
+            confirmExact(proposed);
+            return;
+          }
+
+          // IDLE
+          if (looksLikeAppointmentIntent(text)) {
+            askForDatetime();
+            return;
+          }
+
+          // normal chat
+          await sendToChat(text);
+
+        } finally {
+          setBusy(false);
+          els.input.focus();
+        }
+      }
+
+      els.sendBtn.addEventListener("click", handleSend);
+      els.input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          handleSend();
+        }
+      });
+
+      appendMessage(CONFIG.welcome, "bot");
+      els.input.focus();
+    })();
+  </script>
 </body>
 </html>
