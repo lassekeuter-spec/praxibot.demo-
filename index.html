@@ -254,7 +254,7 @@
         timeoutMs: 25000,
 
         welcome:
-          "Hallo und willkommen bei KCS. Ich unterstütze gern bei KI-Chatbots, KI-Rezeption, Automatisierung oder einer Website mit KI. Möchten Sie direkt einen Termin vereinbaren?",
+          "Hallo und willkommen bei KCS. Ich unterstütze gern bei KI-Chatbots, KI-Rezeption, Automatisierung oder einer Website mit KI. Möchten Sie direkt einen Termin vereinbaren oder haben Sie eine kurze Frage?",
 
         booking: {
           timeZone: "Europe/Berlin",
@@ -274,24 +274,22 @@
         status: document.getElementById("status")
       };
 
-      // ---------- Systemprompt (ausführlich + Dienstleistungen) ----------
       const SYSTEM_PROMPT = `
 Du bist der digitale Assistent von KCS (Keuter Communication Systems), einem Digitalisierungsunternehmen mit Fokus auf KI-Systeme.
 
 AUFGABENBEREICH:
 1) Du beantwortest Fragen zu unseren Dienstleistungen kurz und verständlich:
-   - KI-Chatbots (z. B. Website-Chatbot, Support-Bot, Sales-Bot)
-   - KI-Rezeption / Terminassistenz (Chat, optional WhatsApp/Telefon-Konzept)
-   - Automatisierung (z. B. Prozesse, Lead-Handling, Content-Workflows, Integrationen)
-   - Websites (Erstellung, Optimierung, inklusive integrierter KI-Funktionen)
-   Bei Unklarheit stellst du höchstens 1 Rückfrage.
+   - KI-Chatbots (Website-Chatbot, Support, Sales, interne Assistenz)
+   - KI-Rezeption / Terminassistenz (Chat, Integrationen, optional WhatsApp/Telefon-Konzept)
+   - Automatisierung (Workflows, Integrationen, Lead-Handling, Content-Prozesse)
+   - Websites (Erstellung, Optimierung, inkl. integrierter KI-Funktionen)
+   Wenn etwas unklar ist, stellst du maximal 1 Rückfrage.
 
 2) Du unterstützt beim Terminvereinbaren und beim Eintragen eines Termins in Google Calendar.
 
 TONALITÄT / STIL:
 - Freundlich, professionell, lösungsorientiert.
 - Antworten kurz und präzise (max. 2–4 Sätze).
-- Keine langen Aufzählungen; wenn nötig 1–2 Bulletpoints.
 - Keine Widersprüche: Bleibe logisch konsistent über den gesamten Chatverlauf.
 
 TERMINREGELN (WICHTIG):
@@ -302,20 +300,19 @@ TERMINREGELN (WICHTIG):
 - Wenn eine gewünschte Uhrzeit nicht möglich ist, bietest du genau EINE konkrete Alternative an.
   Beispiel: "Leider können wir um 17:00 nicht. Würde Ihnen 17:15 passen?"
 - Wenn der Nutzer eine neue Uhrzeit/ein neues Datum nennt, behandelst du es als neuen Wunsch (nicht als Ja/Nein).
+- Wenn der Nutzer nach weiteren freien Terminen am selben Tag fragt, nenne 1 passenden Vorschlag.
 
 SICHERHEIT / TRANSPARENZ:
-- Erfinde keine Kalenderbuchungen. Bestätige "eingetragen" nur, wenn wirklich gebucht wurde.
+- Bestätige "eingetragen" nur, wenn wirklich gebucht wurde.
 `;
 
-      // ---------- State ----------
       const state = {
         busy: false,
         history: [{ role: "system", content: SYSTEM_PROMPT }],
         mode: "IDLE",   // IDLE | COLLECT | CONFIRM
-        pending: null   // { proposedParts }
+        pending: null   // { requestedParts, proposedParts, triedKeys:Set }
       };
 
-      // ---------- UI helpers ----------
       function setStatus(text) { els.status.textContent = text || ""; }
       function setBusy(v) { state.busy = v; els.sendBtn.disabled = v; }
       function scrollToBottom() { els.messages.scrollTop = els.messages.scrollHeight; }
@@ -341,7 +338,7 @@ SICHERHEIT / TRANSPARENZ:
         return wrapper;
       }
 
-      // Nach JEDER Bot-Nachricht: kurze Thinkbubble (immer)
+      // Nach JEDER Bot-Nachricht kurz tippen
       async function botReply(text, delayMs = 420) {
         const bubble = appendTypingBubble();
         await new Promise(r => setTimeout(r, delayMs));
@@ -374,7 +371,7 @@ SICHERHEIT / TRANSPARENZ:
         return null;
       }
 
-      // ---------- Date/Time (Berlin) ----------
+      // ---------- Date/Time helpers ----------
       const TZ = CONFIG.booking.timeZone;
 
       function pad2(n) { return String(n).padStart(2, "0"); }
@@ -398,24 +395,29 @@ SICHERHEIT / TRANSPARENZ:
         return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
       }
 
-      function berlinOffsetString({ year, month, day }) {
-        const fmt = new Intl.DateTimeFormat("en-US", {
-          timeZone: TZ,
-          timeZoneName: "shortOffset",
-          year: "numeric", month: "2-digit", day: "2-digit",
-          hour: "2-digit", minute: "2-digit", hour12: false
-        });
-        const parts = fmt.formatToParts(new Date(Date.UTC(year, month - 1, day, 12, 0, 0)));
-        const tzPart = parts.find(p => p.type === "timeZoneName")?.value || "GMT+1";
-        const m = tzPart.match(/GMT([+-]\d{1,2})/);
-        const hours = m ? Number(m[1]) : 1;
-        const sign = hours >= 0 ? "+" : "-";
-        return `${sign}${pad2(Math.abs(hours))}:00`;
+      function weekdayIndex(dateParts) {
+        const d = toUTCNoonDate(dateParts);
+        return d.getUTCDay(); // 0 So ... 6 Sa
       }
 
-      function toBerlinISO(parts) {
-        const off = berlinOffsetString(parts);
-        return `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}T${pad2(parts.hour)}:${pad2(parts.minute)}:00${off}`;
+      function isBusinessDay(p) {
+        if (!CONFIG.booking.businessDaysOnly) return true;
+        const wd = weekdayIndex(p);
+        return wd !== 0 && wd !== 6;
+      }
+
+      function parseHHMM(str) {
+        const m = str.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+        if (!m) return null;
+        return { hour: Number(m[1]), minute: Number(m[2]) };
+      }
+
+      function minutesOfDay(p) { return p.hour * 60 + p.minute; }
+
+      function businessWindow() {
+        const s = parseHHMM(CONFIG.booking.businessStart) || { hour: 9, minute: 0 };
+        const e = parseHHMM(CONFIG.booking.businessEnd) || { hour: 18, minute: 0 };
+        return { s, e };
       }
 
       function formatDate(p) { return `${pad2(p.day)}.${pad2(p.month)}.${p.year}`; }
@@ -448,53 +450,24 @@ SICHERHEIT / TRANSPARENZ:
         return null;
       }
 
-      function weekdayIndex(dateParts) {
-        const d = toUTCNoonDate(dateParts);
-        return d.getUTCDay(); // 0 So ... 6 Sa
+      function berlinOffsetString({ year, month, day }) {
+        const fmt = new Intl.DateTimeFormat("en-US", {
+          timeZone: TZ,
+          timeZoneName: "shortOffset",
+          year: "numeric", month: "2-digit", day: "2-digit",
+          hour: "2-digit", minute: "2-digit", hour12: false
+        });
+        const parts = fmt.formatToParts(new Date(Date.UTC(year, month - 1, day, 12, 0, 0)));
+        const tzPart = parts.find(p => p.type === "timeZoneName")?.value || "GMT+1";
+        const m = tzPart.match(/GMT([+-]\d{1,2})/);
+        const hours = m ? Number(m[1]) : 1;
+        const sign = hours >= 0 ? "+" : "-";
+        return `${sign}${pad2(Math.abs(hours))}:00`;
       }
 
-      function isBusinessDay(p) {
-        if (!CONFIG.booking.businessDaysOnly) return true;
-        const wd = weekdayIndex(p);
-        return wd !== 0 && wd !== 6;
-      }
-
-      function parseHHMM(str) {
-        const m = str.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
-        if (!m) return null;
-        return { hour: Number(m[1]), minute: Number(m[2]) };
-      }
-
-      function minutesOfDay(p) { return p.hour * 60 + p.minute; }
-
-      function businessWindow() {
-        const s = parseHHMM(CONFIG.booking.businessStart) || { hour: 9, minute: 0 };
-        const e = parseHHMM(CONFIG.booking.businessEnd) || { hour: 18, minute: 0 };
-        return { s, e };
-      }
-
-      function isWithinBusinessHours(p) {
-        const { s, e } = businessWindow();
-        const m = minutesOfDay(p);
-        return m >= minutesOfDay(s) && m < minutesOfDay(e);
-      }
-
-      // Slot-Raster ab businessStart (09:00 -> 09:45 -> 10:30 -> 11:15 ...)
-      function snapToSlotGrid(p) {
-        const { s } = businessWindow();
-        const base = minutesOfDay(s);
-        const t = minutesOfDay(p);
-        const step = CONFIG.booking.slotMinutes;
-
-        if (t <= base) return { ...p, hour: s.hour, minute: s.minute };
-
-        const delta = t - base;
-        const k = Math.ceil(delta / step);
-        const snapped = base + k * step;
-
-        const hour = Math.floor(snapped / 60);
-        const minute = snapped % 60;
-        return { ...p, hour, minute };
+      function toBerlinISO(parts) {
+        const off = berlinOffsetString(parts);
+        return `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}T${pad2(parts.hour)}:${pad2(parts.minute)}:00${off}`;
       }
 
       function addMinutes(p, add) {
@@ -507,36 +480,71 @@ SICHERHEIT / TRANSPARENZ:
         return { ...next, hour: Math.floor(rest / 60), minute: rest % 60 };
       }
 
-      function nextValidSlot(fromParts) {
-        let p = { ...fromParts };
-
-        while (!isBusinessDay(p)) {
-          const nextDay = addDaysBerlin(p, 1);
-          const { s } = businessWindow();
-          p = { ...nextDay, hour: s.hour, minute: s.minute };
-        }
-
-        p = snapToSlotGrid(p);
-
-        if (!isWithinBusinessHours(p)) {
-          let nextDay = addDaysBerlin(p, 1);
-          while (!isBusinessDay(nextDay)) nextDay = addDaysBerlin(nextDay, 1);
-          const { s } = businessWindow();
-          p = { ...nextDay, hour: s.hour, minute: s.minute };
-          p = snapToSlotGrid(p);
-        }
-
-        return p;
-      }
-
-      function nextSlotAfter(p) {
-        const step = CONFIG.booking.slotMinutes;
-        const candidate = addMinutes(p, step);
-        return nextValidSlot(candidate);
-      }
-
       function computeEnd(start) {
         return addMinutes(start, CONFIG.booking.durationMinutes);
+      }
+
+      // ---------- Slot selection that "makes sense" ----------
+      function getSlotsForDate(dateParts) {
+        const { s, e } = businessWindow();
+        const startMin = minutesOfDay(s);
+        const endMin = minutesOfDay(e);
+        const step = CONFIG.booking.slotMinutes;
+
+        const slots = [];
+        for (let m = startMin; m < endMin; m += step) {
+          slots.push({
+            ...dateParts,
+            hour: Math.floor(m / 60),
+            minute: m % 60
+          });
+        }
+        return slots;
+      }
+
+      function keyOf(p) {
+        return `${p.year}-${pad2(p.month)}-${pad2(p.day)} ${pad2(p.hour)}:${pad2(p.minute)}`;
+      }
+
+      function pickClosestSlotSameDay(requestedParts, triedSet) {
+        const dateOnly = { year: requestedParts.year, month: requestedParts.month, day: requestedParts.day };
+        const slots = getSlotsForDate(dateOnly);
+
+        const reqM = minutesOfDay(requestedParts);
+
+        // sort by absolute distance to requested, prefer same-day sensible choice
+        slots.sort((a, b) => {
+          const da = Math.abs(minutesOfDay(a) - reqM);
+          const db = Math.abs(minutesOfDay(b) - reqM);
+          if (da !== db) return da - db;
+          // if equal distance, prefer later (feels more natural when user asked late)
+          return minutesOfDay(b) - minutesOfDay(a);
+        });
+
+        for (const s of slots) {
+          const k = keyOf(s);
+          if (!triedSet.has(k)) return s;
+        }
+        return null;
+      }
+
+      function nextBusinessDayStart(fromDate) {
+        let d = { year: fromDate.year, month: fromDate.month, day: fromDate.day };
+        do {
+          d = addDaysBerlin(d, 1);
+        } while (!isBusinessDay(d));
+        const { s } = businessWindow();
+        return { ...d, hour: s.hour, minute: s.minute };
+      }
+
+      function buildRequestedStart(text) {
+        const time = parseTimeHHMM(text);
+        if (!time) return { ok: false, reason: "NEED_TIME" };
+
+        const date = parseExplicitDate(text) || parseRelativeDate(text);
+        if (!date) return { ok: false, reason: "NEED_DATE" };
+
+        return { ok: true, requested: { ...date, hour: time.hour, minute: time.minute } };
       }
 
       // ---------- Intent ----------
@@ -552,46 +560,37 @@ SICHERHEIT / TRANSPARENZ:
         return /\b(nein|no|nicht|leider nicht|abbrechen|stopp|stop)\b/i.test(text);
       }
 
-      function buildRequestedStart(text) {
-        const time = parseTimeHHMM(text);
-        if (!time) return { ok: false, reason: "NEED_TIME" };
-
-        const date = parseExplicitDate(text) || parseRelativeDate(text);
-        if (!date) return { ok: false, reason: "NEED_DATE" };
-
-        return { ok: true, requested: { ...date, hour: time.hour, minute: time.minute } };
-      }
-
-      // ---------- Booking flow messages ----------
+      // ---------- Booking UX ----------
       async function askForDatetime() {
         state.mode = "COLLECT";
         state.pending = null;
         await botReply("Sehr gern. Nennen Sie mir bitte Datum und Uhrzeit (z. B. „morgen 16:00“ oder „18.12 09:00“).");
       }
 
-      async function proposeAlternative(requested, proposed) {
+      async function propose(proposed, requested, note = null) {
         const req = formatTime(requested);
-        const propTime = formatTime(proposed);
-
         const sameDate =
           requested.year === proposed.year &&
           requested.month === proposed.month &&
           requested.day === proposed.day;
 
-        const when = sameDate ? propTime : `${formatDate(proposed)} um ${propTime}`;
+        const when = sameDate ? formatTime(proposed) : `${formatDate(proposed)} um ${formatTime(proposed)}`;
 
-        await botReply(`Leider können wir um ${req} nicht. Würde Ihnen auch ${when} passen?`);
+        const prefix = note ? `${note} ` : "";
+        await botReply(`${prefix}Leider können wir um ${req} nicht. Würde Ihnen auch ${when} passen?`);
 
         state.mode = "CONFIRM";
-        state.pending = { proposedParts: proposed };
+        state.pending = state.pending || { requestedParts: requested, triedKeys: new Set() };
+        state.pending.proposedParts = proposed;
+        state.pending.triedKeys.add(keyOf(proposed));
       }
 
       async function confirmExact(proposed) {
-        await botReply(
-          `Soll ich den Termin am ${formatDate(proposed)} um ${formatTime(proposed)} für 45 Minuten eintragen? (Ja/Nein)`
-        );
+        await botReply(`Soll ich den Termin am ${formatDate(proposed)} um ${formatTime(proposed)} für 45 Minuten eintragen? (Ja/Nein)`);
         state.mode = "CONFIRM";
-        state.pending = { proposedParts: proposed };
+        state.pending = state.pending || { requestedParts: proposed, triedKeys: new Set() };
+        state.pending.proposedParts = proposed;
+        state.pending.triedKeys.add(keyOf(proposed));
       }
 
       async function bookExact(proposed) {
@@ -610,6 +609,42 @@ SICHERHEIT / TRANSPARENZ:
         if (res.ok) return { ok: true };
         const err = String(data?.error || data?.message || "Buchung fehlgeschlagen");
         return { ok: false, status: res.status, error: err, detail: data };
+      }
+
+      function isSameDate(a, b) {
+        return a.year === b.year && a.month === b.month && a.day === b.day;
+      }
+
+      async function suggestNextAlternative() {
+        const pending = state.pending;
+        if (!pending?.requestedParts) {
+          state.mode = "COLLECT";
+          state.pending = null;
+          await botReply("Alles klar. Nennen Sie mir bitte Datum und Uhrzeit erneut.");
+          return;
+        }
+
+        const requested = pending.requestedParts;
+        const tried = pending.triedKeys || new Set();
+
+        // 1) Erst Alternativen am selben Tag (macht Sinn!)
+        const sameDayAlt = pickClosestSlotSameDay(requested, tried);
+        if (sameDayAlt) {
+          await botReply(`Verstanden. Ich kann Ihnen morgen noch ${formatTime(sameDayAlt)} anbieten. Passt das?`);
+          state.mode = "CONFIRM";
+          pending.proposedParts = sameDayAlt;
+          tried.add(keyOf(sameDayAlt));
+          pending.triedKeys = tried;
+          return;
+        }
+
+        // 2) Wenn nichts mehr am Tag: nächster Werktag 09:00
+        const next = nextBusinessDayStart(requested);
+        await botReply(`Morgen ist leider nichts Passendes mehr frei. Der nächste Termin wäre am ${formatDate(next)} um ${formatTime(next)}. Passt das?`);
+        state.mode = "CONFIRM";
+        pending.proposedParts = next;
+        tried.add(keyOf(next));
+        pending.triedKeys = tried;
       }
 
       // ---------- LLM (IDLE) ----------
@@ -652,12 +687,9 @@ SICHERHEIT / TRANSPARENZ:
         els.input.value = "";
 
         try {
-          // Wenn Nutzer im CONFIRM-Modus eine neue Zeit schreibt: als neuer Wunsch behandeln
-          const userProvidedNewDatetime = (() => {
-            const hasTime = !!parseTimeHHMM(text);
-            const hasDate = !!(parseExplicitDate(text) || parseRelativeDate(text));
-            return hasTime && hasDate;
-          })();
+          const hasTime = !!parseTimeHHMM(text);
+          const hasDate = !!(parseExplicitDate(text) || parseRelativeDate(text));
+          const userProvidedNewDatetime = hasTime && hasDate;
 
           if (state.mode === "CONFIRM" && userProvidedNewDatetime) {
             state.mode = "COLLECT";
@@ -671,11 +703,10 @@ SICHERHEIT / TRANSPARENZ:
               return;
             }
 
-            // Guard: Ohne "Ja" wird niemals gebucht
             if (looksLikeYes(text)) {
               const proposed = state.pending.proposedParts;
-              const result = await bookExact(proposed);
 
+              const result = await bookExact(proposed);
               if (result.ok) {
                 await botReply("Perfekt – der Termin ist eingetragen.");
                 state.mode = "IDLE";
@@ -684,8 +715,12 @@ SICHERHEIT / TRANSPARENZ:
               }
 
               if (result.status === 409) {
-                const next = nextSlotAfter(proposed);
-                await proposeAlternative(proposed, next);
+                // Konflikt: nächste Alternative am selben Tag / dann nächster Tag
+                await botReply("Der Slot ist gerade belegt. Ich prüfe kurz eine Alternative …");
+                // markiere vorgeschlagenen Slot als tried (falls nicht drin)
+                state.pending.triedKeys = state.pending.triedKeys || new Set();
+                state.pending.triedKeys.add(keyOf(proposed));
+                await suggestNextAlternative();
                 return;
               }
 
@@ -697,8 +732,8 @@ SICHERHEIT / TRANSPARENZ:
             }
 
             if (looksLikeNo(text)) {
-              const next = nextSlotAfter(state.pending.proposedParts);
-              await proposeAlternative(state.pending.proposedParts, next);
+              // Wenn Nutzer fragt ob morgen noch frei ist: sinnvoll antworten (Alternative am selben Tag)
+              await suggestNextAlternative();
               return;
             }
 
@@ -720,22 +755,40 @@ SICHERHEIT / TRANSPARENZ:
             }
 
             const requested = parsed.requested;
-            const snapped = snapToSlotGrid(requested);
-            const proposed = nextValidSlot(snapped);
 
-            const same =
-              requested.year === proposed.year &&
-              requested.month === proposed.month &&
-              requested.day === proposed.day &&
-              requested.hour === proposed.hour &&
-              requested.minute === proposed.minute;
-
-            if (!same) {
-              await proposeAlternative(requested, proposed);
+            // Wenn Wochenende: nächster Werktag Start
+            if (!isBusinessDay(requested)) {
+              const next = nextBusinessDayStart(requested);
+              state.pending = { requestedParts: requested, proposedParts: next, triedKeys: new Set([keyOf(next)]) };
+              state.mode = "CONFIRM";
+              await botReply(`Am ${formatDate(requested)} sind wir nicht verfügbar. Der nächste Termin wäre am ${formatDate(next)} um ${formatTime(next)}. Passt das?`);
               return;
             }
 
-            await confirmExact(proposed);
+            // Hier der Kernfix: wenn Uhrzeit außerhalb, dann nächster sinnvoller Slot AM SELBEN TAG (nicht übermorgen)
+            const tried = new Set();
+            const proposedSameDay = pickClosestSlotSameDay(requested, tried);
+
+            if (!proposedSameDay) {
+              const next = nextBusinessDayStart(requested);
+              state.pending = { requestedParts: requested, proposedParts: next, triedKeys: new Set([keyOf(next)]) };
+              state.mode = "CONFIRM";
+              await botReply(`Morgen sind leider keine Slots frei. Der nächste Termin wäre am ${formatDate(next)} um ${formatTime(next)}. Passt das?`);
+              return;
+            }
+
+            // Wenn gewünschte Uhrzeit exakt ein Slot ist (und wir keinen echten Availability-Check machen),
+            // dann bestätigen wir direkt diesen Slot. Sonst Alternative anbieten.
+            const isExactSlot = keyOf(proposedSameDay) === keyOf({ ...requested });
+
+            state.pending = { requestedParts: requested, proposedParts: proposedSameDay, triedKeys: new Set([keyOf(proposedSameDay)]) };
+
+            if (isExactSlot) {
+              await confirmExact(proposedSameDay);
+              return;
+            }
+
+            await propose(proposedSameDay, requested);
             return;
           }
 
@@ -745,7 +798,6 @@ SICHERHEIT / TRANSPARENZ:
             return;
           }
 
-          // normal chat (Dienstleistungen etc.)
           await sendToChat(text);
 
         } finally {
@@ -762,7 +814,6 @@ SICHERHEIT / TRANSPARENZ:
         }
       });
 
-      // Start: Welcome (mit Thinkbubble, weil "nach jeder Bot-Nachricht")
       (async () => {
         await botReply(CONFIG.welcome);
         els.input.focus();
