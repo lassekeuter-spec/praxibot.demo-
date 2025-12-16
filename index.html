@@ -13,10 +13,7 @@
       --text-muted: #6b7280;
       --border: #e5e7eb;
 
-      /* KCS brand */
       --kcs-blue: #14608c;
-
-      /* UI mapping */
       --primary: var(--kcs-blue);
       --primary-hover: #0f4e72;
 
@@ -256,22 +253,25 @@
         calendarEndpoint: "/api/calendar-book",
         timeoutMs: 25000,
 
-        // Freundlicher, klarer Einstieg
         welcome:
-          "Hallo und willkommen bei KCS. Ich helfe gern bei KI-Chatbots, KI-Rezeption, Automatisierung oder einer Website mit KI. Möchten Sie etwas besprechen oder direkt einen Termin vereinbaren?",
+          "Hallo und willkommen bei KCS. Ich unterstütze gern bei KI-Chatbots, KI-Rezeption, Automatisierung oder einer Website mit KI. Möchten Sie direkt einen Termin vereinbaren oder haben Sie erst eine kurze Frage?",
 
-        // Termin-Policy
         booking: {
           timeZone: "Europe/Berlin",
           durationMinutes: 45,
-          snapTo45Block: true,          // true = runde auf nächstes 45-Minuten Raster
-          businessDaysOnly: true,       // Mo–Fr
-          businessStart: "09:00",       // Rahmen des Möglichen (anpassbar)
-          businessEnd: "18:00",         // Rahmen des Möglichen (anpassbar)
-          alternativeCount: 3           // wie viele Alternativen anbieten
+
+          // 45-Minuten-Raster (00, 45, 30, 15, ...)
+          snapTo45Block: true,
+
+          // „Rahmen des möglichen“ (anpassbar)
+          businessDaysOnly: true, // Mo–Fr
+          businessStart: "09:00",
+          businessEnd: "18:00",
+
+          // Bei Nicht-Passend: nur 1 Alternative vorschlagen (wie gewünscht)
+          proposeSingleAlternative: true,
         },
 
-        // LLM nur für "normale" Fragen – NICHT während Terminflow (Option A)
         systemPrompt:
           "Du bist der digitale Assistent von KCS (Keuter Communication Systems). " +
           "Antworte kurz, freundlich und professionell (max. 2–4 Sätze). Stelle höchstens 1 Rückfrage. " +
@@ -290,16 +290,16 @@
         return;
       }
 
-      // --- State Machine (Option A) ---
-      // IDLE -> COLLECT_DATETIME -> CONFIRM -> (BOOK) -> IDLE
+      // State Machine (Option A)
+      // IDLE -> COLLECT_DATETIME -> CONFIRM -> BOOK -> IDLE
       const state = {
         busy: false,
         history: [{ role: "system", content: CONFIG.systemPrompt }],
         mode: "IDLE", // "IDLE" | "COLLECT_DATETIME" | "CONFIRM"
-        draft: null   // { startParts, startISO, endISO }
+        draft: null,  // { requestedStartParts, proposedStartParts }
       };
 
-      // ---------- UI helpers ----------
+      // UI helpers
       function setStatus(text) { els.status.textContent = text || ""; }
       function setBusy(isBusy) { state.busy = isBusy; els.sendBtn.disabled = isBusy; }
       function scrollToBottom() { els.messages.scrollTop = els.messages.scrollHeight; }
@@ -323,6 +323,15 @@
         els.messages.appendChild(wrapper);
         scrollToBottom();
         return wrapper;
+      }
+
+      async function withThinking(fn) {
+        const bubble = appendTypingBubble();
+        try {
+          return await fn();
+        } finally {
+          bubble.remove();
+        }
       }
 
       async function postJson(url, body, timeoutMs) {
@@ -351,7 +360,7 @@
         return null;
       }
 
-      // ---------- Date/Time helpers (Europe/Berlin, deterministic) ----------
+      // Date/Time helpers
       const TZ = CONFIG.booking.timeZone;
 
       function pad2(n) { return String(n).padStart(2, "0"); }
@@ -416,11 +425,18 @@
         const endHour = Math.floor(total / 60);
         const endMinute = total % 60;
 
-        if (endHour < 24) {
-          return { ...startParts, hour: endHour, minute: endMinute };
-        }
+        if (endHour < 24) return { ...startParts, hour: endHour, minute: endMinute };
+
         const nextDate = addDaysBerlin(startParts, 1);
         return { ...nextDate, hour: endHour % 24, minute: endMinute };
+      }
+
+      function formatDate(parts) {
+        return `${pad2(parts.day)}.${pad2(parts.month)}.${parts.year}`;
+      }
+
+      function formatTime(parts) {
+        return `${pad2(parts.hour)}:${pad2(parts.minute)}`;
       }
 
       function parseTimeHHMM(text) {
@@ -497,6 +513,31 @@
         return null;
       }
 
+      function parseBusinessTime(str) {
+        const m = str.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+        if (!m) return null;
+        return { hour: Number(m[1]), minute: Number(m[2]) };
+      }
+
+      function minutesOfDay({ hour, minute }) {
+        return hour * 60 + minute;
+      }
+
+      function isBusinessDay(parts) {
+        if (!CONFIG.booking.businessDaysOnly) return true;
+        const idx = berlinWeekdayIndex(parts); // 0=So
+        return idx !== 0 && idx !== 6;
+      }
+
+      function isWithinBusinessHours(startParts) {
+        const bs = parseBusinessTime(CONFIG.booking.businessStart);
+        const be = parseBusinessTime(CONFIG.booking.businessEnd);
+        if (!bs || !be) return true;
+
+        const t = minutesOfDay(startParts);
+        return t >= minutesOfDay(bs) && t < minutesOfDay(be);
+      }
+
       function snapTo45(parts) {
         if (!CONFIG.booking.snapTo45Block) return parts;
 
@@ -510,142 +551,80 @@
         return { ...parts, hour: Math.floor(snapped / 60), minute: snapped % 60 };
       }
 
-      function formatDate(parts) {
-        return `${pad2(parts.day)}.${pad2(parts.month)}.${parts.year}`;
+      // Next 45-min slot (simple)
+      function addMinutes(parts, addMin) {
+        const total = parts.hour * 60 + parts.minute + addMin;
+        if (total < 24 * 60) {
+          return { ...parts, hour: Math.floor(total / 60), minute: total % 60 };
+        }
+        const nextDate = addDaysBerlin(parts, 1);
+        const rest = total - 24 * 60;
+        return { ...nextDate, hour: Math.floor(rest / 60), minute: rest % 60 };
       }
 
-      function formatTime(parts) {
-        return `${pad2(parts.hour)}:${pad2(parts.minute)}`;
-      }
-
-      function parseBusinessTime(str) {
-        const m = str.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
-        if (!m) return null;
-        return { hour: Number(m[1]), minute: Number(m[2]) };
-      }
-
-      function minutesOfDay({ hour, minute }) {
-        return hour * 60 + minute;
-      }
-
-      function isBusinessDay(parts) {
-        const idx = berlinWeekdayIndex(parts);
-        // 0=So, 6=Sa
-        if (!CONFIG.booking.businessDaysOnly) return true;
-        return idx !== 0 && idx !== 6;
-      }
-
-      function isWithinBusinessHours(startParts) {
-        const bs = parseBusinessTime(CONFIG.booking.businessStart);
-        const be = parseBusinessTime(CONFIG.booking.businessEnd);
-        if (!bs || !be) return true;
-
-        const t = minutesOfDay(startParts);
-        return t >= minutesOfDay(bs) && t < minutesOfDay(be);
-      }
-
-      function nextBusinessStart(afterParts) {
+      function nextBusinessStart(parts) {
         const bs = parseBusinessTime(CONFIG.booking.businessStart) || { hour: 9, minute: 0 };
+        let cursor = { year: parts.year, month: parts.month, day: parts.day };
 
-        let cursor = { year: afterParts.year, month: afterParts.month, day: afterParts.day };
-        // Wenn heute nicht Businessday -> weiter
         while (!isBusinessDay(cursor)) cursor = addDaysBerlin(cursor, 1);
-
-        // Setze auf BusinessStart
-        return { ...cursor, hour: bs.hour, minute: bs.minute };
+        return snapTo45({ ...cursor, hour: bs.hour, minute: bs.minute });
       }
 
-      function buildStartFromUserText(text) {
+      function nextValidSlot(fromParts) {
+        let cursor = { ...fromParts };
+
+        // if not business day -> next business start
+        if (!isBusinessDay(cursor)) cursor = nextBusinessStart(addDaysBerlin(cursor, 1));
+
+        // if out of hours -> next business start (next day if needed)
+        if (!isWithinBusinessHours(cursor)) cursor = nextBusinessStart(addDaysBerlin(cursor, 1));
+
+        // snap to 45
+        cursor = snapTo45(cursor);
+
+        // ensure still within hours after snapping
+        if (!isWithinBusinessHours(cursor)) cursor = nextBusinessStart(addDaysBerlin(cursor, 1));
+
+        return cursor;
+      }
+
+      function buildRequestedStart(text) {
         const time = parseTimeHHMM(text);
         if (!time) return { ok: false, reason: "NEED_TIME" };
 
         const explicitDate = parseExplicitDate(text);
         const relativeDate = parseRelativeDate(text);
         const date = explicitDate || relativeDate;
+        if (!date) return { ok: false, reason: "NEED_DATE" };
 
-        if (!date) return { ok: false, reason: "NEED_DATE", time };
-
-        const startRaw = { ...date, hour: time.hour, minute: time.minute };
-        const start = snapTo45(startRaw);
-
-        return { ok: true, start };
+        return { ok: true, requested: { ...date, hour: time.hour, minute: time.minute } };
       }
 
-      function generateAlternatives(fromStartParts, count) {
-        // Vorschläge in 45-Minuten-Schritten, innerhalb Business-Rahmen
-        const res = [];
-        const step = CONFIG.booking.durationMinutes;
-
-        let cursor = { ...fromStartParts };
-        for (let i = 0; i < 80 && res.length < count; i++) {
-          // +45 Minuten
-          const total = cursor.hour * 60 + cursor.minute + step;
-          let next = cursor;
-
-          if (total >= 24 * 60) {
-            const nextDate = addDaysBerlin(cursor, 1);
-            next = { ...nextDate, hour: 0, minute: 0 };
-          } else {
-            next = { ...cursor, hour: Math.floor(total / 60), minute: total % 60 };
-          }
-
-          // Businessday/hour constraints
-          if (!isBusinessDay(next)) {
-            next = nextBusinessStart(addDaysBerlin(next, 1));
-          }
-
-          if (!isWithinBusinessHours(next)) {
-            // nächster Tag BusinessStart
-            next = nextBusinessStart(addDaysBerlin(next, 1));
-          }
-
-          // Snap again (falls BusinessStart nicht auf Raster liegt)
-          next = snapTo45(next);
-
-          // Duplikate vermeiden
-          const key = `${next.year}-${next.month}-${next.day} ${next.hour}:${next.minute}`;
-          if (!res.some(x => x.key === key)) {
-            res.push({ key, parts: next });
-          }
-
-          cursor = next;
-        }
-
-        return res.map(x => x.parts);
-      }
-
-      // ---------- Booking / Intent ----------
+      // Intent helpers
       function looksLikeAppointmentIntent(text) {
         return /\b(termin|buchen|buchung|meeting|call|gespräch|beratung)\b/i.test(text);
       }
-
       function looksLikeYes(text) {
         return /\b(ja|yes|ok|okay|bitte|eintragen|passt|genau)\b/i.test(text);
       }
-
       function looksLikeNo(text) {
         return /\b(nein|no|nicht|abbrechen|stopp|stop)\b/i.test(text);
       }
-
       function looksLikeAskAlternatives(text) {
-        return /\b(wann|alternativ|andere|sonst|noch möglich|weitere|andere zeit|wann geht)\b/i.test(text);
+        return /\b(wann|alternativ|andere|sonst|noch|weitere)\b/i.test(text);
       }
 
+      // Calendar book
       async function tryBook(startParts) {
         const endParts = computeEnd(startParts, CONFIG.booking.durationMinutes);
-
-        const startISO = toBerlinISO(startParts);
-        const endISO = toBerlinISO(endParts);
-
         const payload = {
-          start: startISO,
-          end: endISO,
+          start: toBerlinISO(startParts),
+          end: toBerlinISO(endParts),
           summary: "KCS – Termin",
           description: ""
         };
 
         const { res, data } = await postJson(CONFIG.calendarEndpoint, payload, CONFIG.timeoutMs);
-
         if (res.ok) return { ok: true };
 
         const errText = (data && (data.error || data.message)) ? String(data.error || data.message) : "Buchung fehlgeschlagen";
@@ -657,27 +636,46 @@
         state.draft = null;
       }
 
-      function showConfirm(startParts) {
-        const dateStr = formatDate(startParts);
-        const timeStr = formatTime(startParts);
-        appendMessage(`Super. Soll ich den Termin am ${dateStr} um ${timeStr} für 45 Minuten eintragen? (Ja/Nein)`, "bot");
-        state.mode = "CONFIRM";
-        state.draft = { startParts };
+      function askForDatetime() {
+        appendMessage("Sehr gern. Nennen Sie mir bitte Datum und Uhrzeit (z. B. „morgen 16:00“ oder „17.12.2025 16:00“).", "bot");
+        state.mode = "COLLECT_DATETIME";
       }
 
-      function showAlternatives(referenceStartParts, reasonText) {
-        const alts = generateAlternatives(referenceStartParts, CONFIG.booking.alternativeCount);
+      function proposeAlternative(requestedParts, proposedParts) {
+        // gewünschtes wording:
+        // "Leider können wir um 17:00 nicht, würde Ihnen auch 17:15 passen?"
+        const reqTime = formatTime(requestedParts);
+        const propTime = formatTime(proposedParts);
 
-        const list = alts.map(p => `• ${formatDate(p)} um ${formatTime(p)}`).join("\n");
+        // Wenn Datum unterschiedlich (z.B. nächster Werktag), erwähnen wir es freundlich, aber kurz.
+        const sameDate =
+          requestedParts.year === proposedParts.year &&
+          requestedParts.month === proposedParts.month &&
+          requestedParts.day === proposedParts.day;
+
+        const when = sameDate
+          ? `${propTime}`
+          : `${formatDate(proposedParts)} um ${propTime}`;
+
         appendMessage(
-          `${reasonText}\n\nIch kann Ihnen stattdessen diese Zeiten anbieten:\n${list}\n\nWelche Zeit passt Ihnen?`,
+          `Leider können wir um ${reqTime} nicht. Würde Ihnen auch ${when} passen?`,
           "bot"
         );
-        state.mode = "COLLECT_DATETIME";
-        state.draft = null;
+
+        state.mode = "CONFIRM";
+        state.draft = { requestedStartParts: requestedParts, proposedStartParts: proposedParts };
       }
 
-      // ---------- LLM (nur im IDLE, niemals im Terminflow) ----------
+      function confirmProposed(proposedParts) {
+        appendMessage(
+          `Super. Soll ich den Termin am ${formatDate(proposedParts)} um ${formatTime(proposedParts)} für 45 Minuten eintragen? (Ja/Nein)`,
+          "bot"
+        );
+        state.mode = "CONFIRM";
+        state.draft = { requestedStartParts: proposedParts, proposedStartParts: proposedParts };
+      }
+
+      // LLM (nur im IDLE)
       async function sendToChat(userText) {
         const typing = appendTypingBubble();
         try {
@@ -704,7 +702,6 @@
         }
       }
 
-      // ---------- Main handler ----------
       async function handleSend() {
         if (state.busy) return;
 
@@ -719,45 +716,51 @@
         els.input.value = "";
 
         try {
-          // OPTION A: Sobald Terminflow aktiv ist -> KEIN LLM
+          // --- OPTION A: In booking flow, no LLM ---
           if (state.mode === "CONFIRM") {
-            if (looksLikeNo(text)) {
-              // Nutzer will Alternativen / anderes
-              const ref = state.draft?.startParts || nowBerlinParts();
-              showAlternatives(ref, "Alles klar – der Termin wird nicht eingetragen.");
+            // User asks alternatives instead of yes/no
+            if (looksLikeAskAlternatives(text)) {
+              await withThinking(async () => {
+                const base = state.draft?.proposedStartParts || nowBerlinParts();
+                const next = nextValidSlot(addMinutes(base, 45));
+                proposeAlternative(base, next);
+              });
               return;
             }
 
-            if (looksLikeAskAlternatives(text)) {
-              const ref = state.draft?.startParts || nowBerlinParts();
-              showAlternatives(ref, "Gern. Der gewünschte Termin ist so nicht fest gebucht – ich kann Ihnen Alternativen anbieten.");
+            if (looksLikeNo(text)) {
+              await withThinking(async () => {
+                const base = state.draft?.proposedStartParts || nowBerlinParts();
+                const next = nextValidSlot(addMinutes(base, 45));
+                proposeAlternative(base, next);
+              });
               return;
             }
 
             if (!looksLikeYes(text)) {
-              appendMessage("Kurz zur Sicherheit: Soll ich den Termin eintragen? Bitte antworten Sie mit „Ja“ oder „Nein“.", "bot");
+              appendMessage("Kurz zur Sicherheit: Passt der vorgeschlagene Termin? Bitte „Ja“ oder „Nein“.", "bot");
               return;
             }
 
-            const startParts = state.draft?.startParts;
-            if (!startParts) {
+            const proposed = state.draft?.proposedStartParts;
+            if (!proposed) {
               resetFlow();
               appendMessage("Entschuldigung, ich habe die Uhrzeit nicht mehr sauber vorliegen. Nennen Sie bitte Datum und Uhrzeit erneut.", "bot");
-              state.mode = "COLLECT_DATETIME";
+              askForDatetime();
               return;
             }
 
-            // Rahmen prüfen (Business day/hours)
-            if (!isBusinessDay(startParts) || !isWithinBusinessHours(startParts)) {
-              const nextStart = nextBusinessStart(startParts);
-              showAlternatives(nextStart, "Der gewünschte Termin liegt leider außerhalb des möglichen Zeitrahmens. Ich kann Ihnen gern Alternativen anbieten.");
+            // Business constraints should already be satisfied; still guard:
+            if (!isBusinessDay(proposed) || !isWithinBusinessHours(proposed)) {
+              await withThinking(async () => {
+                const next = nextValidSlot(proposed);
+                proposeAlternative(proposed, next);
+              });
               return;
             }
 
-            // Buchungsversuch
-            const typing = appendTypingBubble();
-            const result = await tryBook(startParts);
-            typing.remove();
+            // Book (with thinking bubble)
+            const result = await withThinking(async () => tryBook(proposed));
 
             if (result.ok) {
               appendMessage("Perfekt – der Termin ist eingetragen.", "bot");
@@ -765,52 +768,73 @@
               return;
             }
 
-            // Belegt/Fehler -> freundlich Alternativen
+            // If calendar returns conflict -> propose next slot
             if (result.status === 409) {
-              showAlternatives(startParts, "Der gewünschte Zeitpunkt ist leider nicht verfügbar. Ich kann Ihnen gern einen alternativen Termin anbieten.");
+              await withThinking(async () => {
+                const next = nextValidSlot(addMinutes(proposed, 45));
+                proposeAlternative(proposed, next);
+              });
               return;
             }
 
-            appendMessage("Das hat leider nicht geklappt. Ich kann Ihnen gern eine Alternative anbieten – welche Zeit passt Ihnen ungefähr?", "bot");
+            appendMessage("Das hat leider nicht geklappt. Ich kann Ihnen gern einen alternativen Termin anbieten – welche Zeit passt Ihnen?", "bot");
             console.error("Calendar booking error:", result.detail || result);
-            state.mode = "COLLECT_DATETIME";
-            state.draft = null;
+            askForDatetime();
             return;
           }
 
           if (state.mode === "COLLECT_DATETIME") {
-            const parsed = buildStartFromUserText(text);
+            const parsed = await withThinking(async () => buildRequestedStart(text));
 
             if (!parsed.ok) {
               if (parsed.reason === "NEED_TIME") {
-                appendMessage("Gern. Um wie viel Uhr soll der Termin starten? (z. B. 10:00)", "bot");
+                appendMessage("Gern. Um wie viel Uhr soll der Termin starten? (z. B. 16:00)", "bot");
               } else {
-                appendMessage("Alles klar. Für welches Datum? (z. B. „morgen“ oder „17.12.2025“)", "bot");
+                appendMessage("Alles klar. Für welches Datum? (z. B. „morgen“ oder „17.12.2025“) – plus Uhrzeit.", "bot");
               }
               return;
             }
 
-            const startParts = parsed.start;
+            const requested = parsed.requested;
 
-            // Rahmen prüfen
-            if (!isBusinessDay(startParts) || !isWithinBusinessHours(startParts)) {
-              const nextStart = nextBusinessStart(startParts);
-              showAlternatives(nextStart, "Der gewünschte Termin liegt leider außerhalb des möglichen Zeitrahmens. Ich kann Ihnen gern Alternativen anbieten.");
+            // Proposed is either:
+            // - snapped to 45, then checked vs business window
+            // - if requested isn't a valid slot/time -> propose a single alternative
+            const snapped = snapTo45(requested);
+            const proposed = nextValidSlot(snapped);
+
+            const requestedSameAsProposed =
+              requested.year === proposed.year &&
+              requested.month === proposed.month &&
+              requested.day === proposed.day &&
+              requested.hour === proposed.hour &&
+              requested.minute === proposed.minute;
+
+            const snappedChanged =
+              (snapped.hour !== requested.hour) || (snapped.minute !== requested.minute) ||
+              (snapped.day !== requested.day) || (snapped.month !== requested.month) || (snapped.year !== requested.year);
+
+            const violatedBusiness =
+              !isBusinessDay(snapped) || !isWithinBusinessHours(snapped);
+
+            // If user asked for a time that doesn't fit (not on raster or outside business), propose next feasible slot
+            if (snappedChanged || violatedBusiness || !requestedSameAsProposed) {
+              proposeAlternative(requested, proposed);
               return;
             }
 
-            showConfirm(startParts);
+            // Perfectly valid -> confirm
+            confirmProposed(proposed);
             return;
           }
 
           // IDLE
           if (looksLikeAppointmentIntent(text)) {
-            state.mode = "COLLECT_DATETIME";
-            appendMessage("Sehr gern. Nennen Sie mir bitte Datum und Uhrzeit (z. B. „morgen 16:00“ oder „17.12.2025 16:00“).", "bot");
+            askForDatetime();
             return;
           }
 
-          // Normaler Chat über LLM
+          // Normal chat (LLM)
           await sendToChat(text);
 
         } finally {
@@ -819,7 +843,6 @@
         }
       }
 
-      // --- User input wiring ---
       els.sendBtn.addEventListener("click", handleSend);
       els.input.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
@@ -828,7 +851,6 @@
         }
       });
 
-      // Start
       appendMessage(CONFIG.welcome, "bot");
       els.input.focus();
     })();
