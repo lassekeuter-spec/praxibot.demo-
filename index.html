@@ -55,7 +55,6 @@
       flex-direction: column;
     }
 
-    /* Topbar */
     .topbar {
       display: flex;
       align-items: center;
@@ -153,7 +152,6 @@
       border-radius: 14px 14px 14px 6px;
     }
 
-    /* Typing bubble */
     .typing {
       display: inline-flex;
       align-items: center;
@@ -263,16 +261,24 @@
       "use strict";
 
       const CONFIG = {
-        endpoint: "/api/chat",
+        chatEndpoint: "/api/chat",
+        calendarEndpoint: "/api/calendar-book",
         timeoutMs: 25000,
         intro:
           "Willkommen bei KCS. Wobei kann ich helfen – Chatbot, KI-Rezeption, Automatisierung oder Website mit KI?",
+
+        // WICHTIG: Booking-Protokoll + kurze Antworten
         systemPrompt:
-          "Du bist der digitale Assistent von KCS (Keuter Communication Systems), einem Digitalisierungsunternehmen für KI-Systeme. " +
-          "Du berätst zu: KI-Chatbots, KI-Rezeptionisten (Chat/Telefon/WhatsApp je nach Setup), Automatisierung sowie Websites mit integrierter KI. " +
-          "Regeln: Antworte kurz und präzise (max. 2–4 Sätze). Keine langen Texte. Keine Aufzählungen mit mehr als 4 Punkten. " +
-          "Stelle pro Antwort höchstens 1 gezielte Rückfrage. " +
-          "Keine falschen Versprechen. Keine sensiblen Daten anfordern. Ton: professionell, lösungsorientiert."
+          "Du bist der digitale Assistent von KCS (Keuter Communication Systems). " +
+          "Du berätst zu: KI-Chatbots, KI-Rezeptionisten, Automatisierung sowie Websites mit integrierter KI. " +
+          "Regeln: Antworte kurz und präzise (max. 2–4 Sätze). Stelle pro Antwort höchstens 1 gezielte Rückfrage. " +
+          "Wenn es um Terminvereinbarung geht, führe den Nutzer zügig zu einem Termin. " +
+          "Du darfst einen Termin in den KCS-Kalender eintragen, aber NUR nach eindeutiger Bestätigung (z. B. 'Ja, bitte eintragen'). " +
+          "Bevor du buchst, stelle sicher, dass du Datum, Startzeit (Europe/Berlin) und Dauer hast. E-Mail ist optional. " +
+          "Wenn du buchen sollst, gib am ENDE deiner Antwort zusätzlich genau einen Marker im folgenden Format aus: " +
+          "<<BOOK:{\"start\":\"ISO_DATETIME\",\"end\":\"ISO_DATETIME\",\"summary\":\"...\",\"description\":\"...\",\"attendeeEmail\":\"optional\"}>> " +
+          "Der Marker muss gültiges JSON enthalten. Ansonsten niemals einen BOOK-Marker ausgeben. " +
+          "Keine sensiblen Daten anfordern."
       };
 
       const els = {
@@ -329,17 +335,35 @@
 
       function extractReply(payload) {
         if (!payload || typeof payload !== "object") return null;
-        const direct =
-          payload.reply ?? payload.message ?? payload.response ?? payload.answer;
+        const direct = payload.reply ?? payload.message ?? payload.response ?? payload.answer;
         if (typeof direct === "string" && direct.trim()) return direct.trim();
         const choice = payload.choices?.[0]?.message?.content;
         if (typeof choice === "string" && choice.trim()) return choice.trim();
         return null;
       }
 
+      function parseBookingMarker(text) {
+        // Sucht: <<BOOK:{...}>>
+        const re = /<<BOOK:(\{[\s\S]*?\})>>/;
+        const m = text.match(re);
+        if (!m) return { cleanText: text, booking: null };
+
+        const jsonStr = m[1];
+        let booking = null;
+        try {
+          booking = JSON.parse(jsonStr);
+        } catch {
+          booking = null;
+        }
+
+        const cleanText = text.replace(re, "").trim();
+        return { cleanText, booking };
+      }
+
       async function postJson(url, body, timeoutMs) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
+
         try {
           const res = await fetch(url, {
             method: "POST",
@@ -347,11 +371,37 @@
             body: JSON.stringify(body),
             signal: controller.signal
           });
+
           const data = await res.json().catch(() => ({}));
           return { res, data };
         } finally {
           clearTimeout(timer);
         }
+      }
+
+      async function bookCalendar(booking) {
+        // Minimal-Validation (Frontend)
+        const start = booking?.start;
+        const end = booking?.end;
+        const summary = booking?.summary;
+
+        if (!start || !end || !summary) {
+          return { ok: false, error: "Ungültige Buchungsdaten (start/end/summary fehlen)." };
+        }
+
+        const payload = {
+          start,
+          end,
+          summary,
+          description: booking?.description || "",
+          attendeeEmail: booking?.attendeeEmail || undefined
+        };
+
+        const { res, data } = await postJson(CONFIG.calendarEndpoint, payload, CONFIG.timeoutMs);
+        if (!res.ok) {
+          return { ok: false, error: data?.error || "Buchung fehlgeschlagen", detail: data };
+        }
+        return { ok: true, data };
       }
 
       async function handleSend() {
@@ -371,35 +421,58 @@
 
         try {
           const { res, data } = await postJson(
-            CONFIG.endpoint,
+            CONFIG.chatEndpoint,
             { messages: state.history, message: text },
             CONFIG.timeoutMs
           );
 
           if (!res.ok) {
             typingEl.remove();
-            appendMessage(
-              "Entschuldigung, es gab ein Problem bei der Anfrage. Bitte erneut versuchen.",
-              "bot"
-            );
+            appendMessage("Entschuldigung, es gab ein Problem bei der Anfrage. Bitte erneut versuchen.", "bot");
             setStatus("Fehler bei der Serverantwort.");
             return;
           }
 
-          const reply =
+          const rawReply =
             extractReply(data) ||
             "Ich konnte dazu gerade keine passende Antwort liefern. Können Sie das kurz präzisieren?";
 
+          const { cleanText, booking } = parseBookingMarker(rawReply);
+
           typingEl.remove();
-          appendMessage(reply, "bot");
-          state.history.push({ role: "assistant", content: reply });
+
+          // Erst die normale Bot-Antwort ausgeben (ohne Marker)
+          appendMessage(cleanText || "Alles klar.", "bot");
+          state.history.push({ role: "assistant", content: rawReply });
+
+          // Falls Booking Marker vorhanden → automatisch buchen
+          if (booking) {
+            const typing2 = appendTypingBubble();
+
+            const result = await bookCalendar(booking);
+
+            typing2.remove();
+
+            if (result.ok) {
+              const link = result.data?.link || result.data?.htmlLink;
+              const confirm =
+                "Termin ist eingetragen." + (link ? " Link: " + link : "");
+              appendMessage(confirm, "bot");
+              state.history.push({ role: "assistant", content: confirm });
+            } else {
+              appendMessage(
+                "Ich konnte den Termin nicht eintragen. Bitte nennen Sie eine Alternative oder prüfen Sie Datum/Uhrzeit.",
+                "bot"
+              );
+              setStatus(result.error + (result.detail ? " (Details in Console)" : ""));
+              if (result.detail) console.error("Calendar booking failed:", result.detail);
+            }
+          }
         } catch (err) {
           typingEl.remove();
           const isTimeout = err && err.name === "AbortError";
           appendMessage(
-            isTimeout
-              ? "Zeitüberschreitung. Bitte versuchen Sie es erneut."
-              : "Verbindungsfehler. Bitte versuchen Sie es später erneut.",
+            isTimeout ? "Zeitüberschreitung. Bitte versuchen Sie es erneut." : "Verbindungsfehler. Bitte versuchen Sie es später erneut.",
             "bot"
           );
           setStatus(isTimeout ? "Timeout." : "Verbindungsfehler.");
